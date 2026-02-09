@@ -1,9 +1,10 @@
+import ProdottoAutocomplete from './ProdottoAutocomplete'
+import { getEventoCorrente } from '@/lib/eventoCorrente'
 import { useState, useEffect } from 'react'
 import { X, Plus, Trash2, ShoppingCart } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import { ERROR_MESSAGES, LIMITS } from '@/lib/constants'
 import type { Database } from '@/types/database.types'
-
 type Ordine = Database['public']['Tables']['ordini']['Row']
 type OrdineInsert = Database['public']['Tables']['ordini']['Insert']
 type RigaOrdineInsert = Database['public']['Tables']['righe_ordine']['Insert']
@@ -29,7 +30,7 @@ interface OrdineFormProps {
 export default function OrdineForm({ ordine, clienti, prodotti, onClose, onSave }: OrdineFormProps) {
   const [formData, setFormData] = useState<OrdineInsert>({
     cliente_id: '',
-    nome_evento: '',
+    nome_evento: getEventoCorrente() || '',  // ← CAMBIATA SOLO QUESTA RIGA
     data_ordine: new Date().toISOString().split('T')[0],
     stato: 'bozza',
     subtotale: 0,
@@ -340,21 +341,19 @@ useEffect(() => {
             </h3>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
-              <div className="md:col-span-2">
-                <label className="label">Seleziona Prodotto</label>
-                <select
-                  value={prodottoSelezionato}
-                  onChange={(e) => setProdottoSelezionato(e.target.value)}
-                  className={`input ${errors.prodotto ? 'border-red-500' : ''}`}
-                >
-                  <option value="">Scegli prodotto...</option>
-                  {prodotti.map(prod => (
-                    <option key={prod.id} value={prod.id}>
-                      {prod.nome} - {formatCurrency(prod.prezzo_listino)}
-                    </option>
-                  ))}
-                </select>
-              </div>
+            <div className="md:col-span-2">
+  <label className="label">Seleziona Prodotto</label>
+  <ProdottoAutocomplete
+    prodotti={prodotti}
+    onSelect={(prodotto) => {
+      setProdottoSelezionato(prodotto.id)
+    }}
+    placeholder="Cerca prodotto per nome o codice..."
+  />
+  {errors.prodotto && (
+    <p className="text-red-500 text-sm mt-1">{errors.prodotto}</p>
+  )}
+</div>
 
               <div>
                 <label className="label">Quantità</label>
