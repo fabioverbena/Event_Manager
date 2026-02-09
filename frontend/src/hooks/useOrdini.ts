@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import type { Database } from '@/types/database.types'
+import { useClienti } from '@/hooks/useClienti'
+import { useProdotti } from '@/hooks/useProdotti'
 
 type Ordine = Database['public']['Tables']['ordini']['Row']
 type OrdineInsert = Database['public']['Tables']['ordini']['Insert']
 type OrdineUpdate = Database['public']['Tables']['ordini']['Update']
 type RigaOrdine = Database['public']['Tables']['righe_ordine']['Row']
+type RigaOrdineInsert = Database['public']['Tables']['righe_ordine']['Insert']
 
 export interface OrdineCompleto extends Ordine {
   clienti?: {
@@ -23,9 +26,15 @@ export interface OrdineCompleto extends Ordine {
 export function useOrdini() {
   const [ordini, setOrdini] = useState<OrdineCompleto[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const { clienti } = useClienti()
+  const { prodotti } = useProdotti()
 
   const fetchOrdini = async () => {
     try {
+      setLoading(true)
+      setError(null)
       const { data, error } = await supabase
         .from('ordini')
         .select(`
@@ -46,10 +55,42 @@ export function useOrdini() {
 
       if (error) throw error
       setOrdini(data || [])
-    } catch (error) {
-      console.error('Errore caricamento ordini:', error)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Errore caricamento ordini')
+      console.error('Errore caricamento ordini:', err)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchOrdineCompleto = async (id: string) => {
+    try {
+      setError(null)
+      const { data, error: fetchError } = await supabase
+        .from('ordini')
+        .select(`
+          *,
+          clienti (
+            ragione_sociale,
+            nome_referente
+          ),
+          righe_ordine (
+            *,
+            prodotti (
+              codice_prodotto,
+              nome
+            )
+          )
+        `)
+        .eq('id', id)
+        .single()
+
+      if (fetchError) throw fetchError
+      return { success: true as const, data: data as OrdineCompleto }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Errore caricamento ordine'
+      setError(message)
+      return { success: false as const, error: message }
     }
   }
 
@@ -57,8 +98,9 @@ export function useOrdini() {
     fetchOrdini()
   }, [])
 
-  const createOrdine = async (ordine: OrdineInsert, righe: any[]) => {
+  const createOrdine = async (ordine: OrdineInsert, righe: RigaOrdineInsert[]) => {
     try {
+      setError(null)
       // Crea ordine
       const { data: nuovoOrdine, error: ordineError } = await supabase
         .from('ordini')
@@ -103,14 +145,17 @@ export function useOrdini() {
 
       await fetchOrdini()
       return { success: true, data: nuovoOrdine }
-    } catch (error) {
-      console.error('Errore creazione ordine:', error)
-      return { success: false, error: error instanceof Error ? error.message : 'Errore sconosciuto' }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Errore sconosciuto'
+      setError(message)
+      console.error('Errore creazione ordine:', err)
+      return { success: false, error: message }
     }
   }
 
-  const updateOrdine = async (id: string, ordine: OrdineUpdate, righe?: any[]) => {
+  const updateOrdine = async (id: string, ordine: OrdineUpdate, righe?: RigaOrdineInsert[]) => {
     try {
+      setError(null)
       // Aggiorna ordine
       const { error: ordineError } = await supabase
         .from('ordini')
@@ -167,14 +212,17 @@ export function useOrdini() {
 
       await fetchOrdini()
       return { success: true }
-    } catch (error) {
-      console.error('Errore aggiornamento ordine:', error)
-      return { success: false, error: error instanceof Error ? error.message : 'Errore sconosciuto' }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Errore sconosciuto'
+      setError(message)
+      console.error('Errore aggiornamento ordine:', err)
+      return { success: false, error: message }
     }
   }
 
   const deleteOrdine = async (id: string) => {
     try {
+      setError(null)
       const { error } = await supabase
         .from('ordini')
         .delete()
@@ -184,18 +232,32 @@ export function useOrdini() {
 
       await fetchOrdini()
       return { success: true }
-    } catch (error) {
-      console.error('Errore eliminazione ordine:', error)
-      return { success: false, error: error instanceof Error ? error.message : 'Errore sconosciuto' }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Errore sconosciuto'
+      setError(message)
+      console.error('Errore eliminazione ordine:', err)
+      return { success: false, error: message }
     }
+  }
+
+  const cambiaStato = async (
+    id: string,
+    stato: Database['public']['Tables']['ordini']['Row']['stato']
+  ) => {
+    return updateOrdine(id, { stato })
   }
 
   return {
     ordini,
+    clienti,
+    prodotti,
     loading,
+    error,
     fetchOrdini,
+    fetchOrdineCompleto,
     createOrdine,
     updateOrdine,
-    deleteOrdine
+    deleteOrdine,
+    cambiaStato,
   }
 }

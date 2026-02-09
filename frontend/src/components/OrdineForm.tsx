@@ -31,7 +31,7 @@ interface OrdineFormProps {
 export default function OrdineForm({ ordine, clienti, prodotti, onClose, onSave }: OrdineFormProps) {
   const [formData, setFormData] = useState<OrdineInsert>({
     cliente_id: '',
-    nome_evento: getEventoCorrente() || '',  // ← CAMBIATA SOLO QUESTA RIGA
+    nome_evento: getEventoCorrente() ?? '',  
     data_ordine: new Date().toISOString().split('T')[0],
     stato: 'bozza',
     subtotale: 0,
@@ -84,14 +84,14 @@ useEffect(() => {
     if (ordine) {
       setFormData({
         cliente_id: ordine.cliente_id,
-        nome_evento: ordine.nome_evento || '',
+        nome_evento: ordine.nome_evento ?? '',
         data_ordine: ordine.data_ordine,
         stato: ordine.stato,
         subtotale: ordine.subtotale,
         sconto_percentuale: ordine.sconto_percentuale,
         sconto_valore: ordine.sconto_valore,
         totale: ordine.totale,
-        note: ordine.note || '',
+        note: ordine.note ?? '',
         ha_espositori: ordine.ha_espositori,
         ha_altri_prodotti: ordine.ha_altri_prodotti,
       })
@@ -103,7 +103,7 @@ useEffect(() => {
           prodotto: riga.prodotti,
           quantita: riga.quantita,
           prezzo_unitario: riga.prezzo_unitario,
-          note_riga: riga.note_riga || '',
+          note_riga: riga.note_riga ?? '',
         }))
         setCarrello(righeCarrello)
       }
@@ -241,7 +241,7 @@ useEffect(() => {
         quantita: riga.quantita,
         prezzo_unitario: riga.prezzo_unitario,
         subtotale_riga: riga.quantita * riga.prezzo_unitario,
-        note_riga: riga.note_riga || null,
+        note_riga: riga.note_riga ?? null,
         ordine_riga: index + 1,
       }))
   
@@ -252,7 +252,7 @@ useEffect(() => {
       const ordineCompleto: OrdineInsert = {
         ...formData,
         sconto_percentuale: hasScontoPercentuale ? formData.sconto_percentuale : null,
-        sconto_valore: formData.sconto_valore || 0,
+        sconto_valore: formData.sconto_valore ?? 0,
         tipo_vendita_espositori: hasEspositori ? tipoVenditaEspositori : null,
       }
   
@@ -289,7 +289,7 @@ useEffect(() => {
     </label>
     <select
       name="cliente_id"
-      value={formData.cliente_id}
+      value={formData.cliente_id ?? ''}
       onChange={handleChange}
       className={`input ${errors.cliente_id ? 'border-red-500' : ''}`}
     >
@@ -311,7 +311,7 @@ useEffect(() => {
     <input
       type="text"
       name="nome_evento"
-      value={formData.nome_evento}
+      value={formData.nome_evento ?? ''}
       onChange={handleChange}
       className={`input ${errors.nome_evento ? 'border-red-500' : ''}`}
       placeholder="es: IPM Essen 2026"
@@ -326,7 +326,7 @@ useEffect(() => {
     <input
       type="date"
       name="data_ordine"
-      value={formData.data_ordine}
+      value={formData.data_ordine ?? ''}
       onChange={handleChange}
       className="input"
     />

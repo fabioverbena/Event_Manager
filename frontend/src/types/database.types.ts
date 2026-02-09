@@ -161,7 +161,7 @@ export interface Database {
           ha_espositori: boolean
           ha_altri_prodotti: boolean
           nome_evento?: string | null
-tipo_vendita_espositori?: string | null
+          tipo_vendita_espositori?: string | null
           data_ordine: string
           stato: 'bozza' | 'confermato' | 'evaso' | 'annullato'
           subtotale: number
@@ -179,6 +179,8 @@ tipo_vendita_espositori?: string | null
           cliente_id: string
           ha_espositori?: boolean
           ha_altri_prodotti?: boolean
+          nome_evento?: string | null
+          tipo_vendita_espositori?: string | null
           data_ordine?: string
           stato?: 'bozza' | 'confermato' | 'evaso' | 'annullato'
           subtotale?: number
@@ -196,6 +198,8 @@ tipo_vendita_espositori?: string | null
           cliente_id?: string
           ha_espositori?: boolean
           ha_altri_prodotti?: boolean
+          nome_evento?: string | null
+          tipo_vendita_espositori?: string | null
           data_ordine?: string
           stato?: 'bozza' | 'confermato' | 'evaso' | 'annullato'
           subtotale?: number

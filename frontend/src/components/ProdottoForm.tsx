@@ -261,7 +261,8 @@ export default function ProdottoForm({ prodotto, categorie, onClose, onSave, onG
             <label className="label">Descrizione</label>
             <textarea
               name="descrizione"
-              value={formData.descrizione || ''}              onChange={handleChange}
+              value={formData.descrizione || ''}
+              onChange={handleChange}
               className="input"
               rows={3}
               placeholder="Descrizione dettagliata del prodotto..."
