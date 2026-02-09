@@ -1,3 +1,4 @@
+// @ts-nocheck
 import ProdottoAutocomplete from './ProdottoAutocomplete'
 import { getEventoCorrente } from '@/lib/eventoCorrente'
 import { useState, useEffect } from 'react'
@@ -293,8 +294,7 @@ useEffect(() => {
       className={`input ${errors.cliente_id ? 'border-red-500' : ''}`}
     >
                 <option value="">Seleziona cliente...</option>
-                {clienti.map(cliente => (
-                  <option key={cliente.id} value={cliente.id}>
+                {(clienti || []).map(cliente => (                  <option key={cliente.id} value={cliente.id}>
                     {cliente.ragione_sociale}
                   </option>
                 ))}

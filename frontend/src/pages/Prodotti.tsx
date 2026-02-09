@@ -222,6 +222,7 @@ export default function Prodotti() {
 
       {showImport && (
         <ImportCSV
+        title="Prodotti"
   onImport={handleImportCSV}
   onClose={() => setShowImport(false)}
   columns={[
