@@ -61,14 +61,7 @@ export function useOrdini() {
       
       const { data, error: fetchError } = await supabase
         .from('ordini')
-        .select(`
-          *,
-          clienti(id, ragione_sociale, citta),
-          righe_ordine(
-            *,
-            prodotti(id, nome, codice_prodotto)
-          )
-        `)
+        .select('*, clienti(*), righe_ordine(*, prodotti(id, nome, codice_prodotto))')
         .order('numero_ordine', { ascending: false })
 
       if (fetchError) throw fetchError
@@ -81,33 +74,40 @@ export function useOrdini() {
       setLoading(false)
     }
   }
+
   const fetchOrdineCompleto = async (id: string) => {
     try {
       const { data, error: fetchError } = await supabase
         .from('ordini')
-        .select(`
-          *,
-          clienti(id, ragione_sociale, citta),
-          righe_ordine(
-            *,
-            prodotti(*)
-          )
-        `)
+        .select('*, clienti(*), righe_ordine(*, prodotti(*))')
         .eq('id', id)
         .single()
-  
+
       if (fetchError) throw fetchError
       return { success: true, data }
     } catch (err) {
       return { success: false, error: err instanceof Error ? err.message : 'Errore' }
     }
   }
+
   const createOrdine = async (ordine: OrdineInsert, righe: RigaOrdineInsert[]) => {
     try {
-      // Crea ordine
+      // Forza calcoli corretti
+      const subtotaleCalcolato = righe.reduce((sum, r) => sum + r.subtotale_riga, 0)
+      const scontoCalcolato = ordine.sconto_percentuale && ordine.sconto_percentuale > 0
+        ? (subtotaleCalcolato * ordine.sconto_percentuale) / 100 
+        : (ordine.sconto_valore || 0)
+      const totaleCalcolato = subtotaleCalcolato - scontoCalcolato
+
+      // Crea ordine con totali corretti
       const { data: ordineData, error: ordineError } = await supabase
         .from('ordini')
-        .insert(ordine)
+        .insert({
+          ...ordine,
+          subtotale: subtotaleCalcolato,
+          sconto_valore: scontoCalcolato,
+          totale: totaleCalcolato
+        })
         .select()
         .single()
 
@@ -138,10 +138,41 @@ export function useOrdini() {
 
   const updateOrdine = async (id: string, updates: OrdineUpdate, righe?: RigaOrdineInsert[]) => {
     try {
+      // DEBUG: Vediamo cosa arriva
+      console.log('=== UPDATE ORDINE DEBUG ===')
+      console.log('Updates ricevuti:', updates)
+      console.log('Righe:', righe)
+      
+      // Forza calcoli corretti se ci sono righe
+      let updatesFinali = updates
+      if (righe) {
+        const subtotaleCalcolato = righe.reduce((sum, r) => sum + r.subtotale_riga, 0)
+        console.log('Subtotale calcolato da righe:', subtotaleCalcolato)
+        
+        const scontoCalcolato = updates.sconto_percentuale && updates.sconto_percentuale > 0
+          ? (subtotaleCalcolato * updates.sconto_percentuale) / 100 
+          : (updates.sconto_valore || 0)
+        console.log('Sconto calcolato:', scontoCalcolato)
+        console.log('updates.sconto_valore originale:', updates.sconto_valore)
+        console.log('updates.sconto_percentuale:', updates.sconto_percentuale)
+        
+        const totaleCalcolato = subtotaleCalcolato - scontoCalcolato
+        console.log('Totale calcolato:', totaleCalcolato)
+        
+        updatesFinali = {
+          ...updates,
+          subtotale: subtotaleCalcolato,
+          sconto_valore: scontoCalcolato,
+          totale: totaleCalcolato
+        }
+        
+        console.log('Updates finali da salvare:', updatesFinali)
+      }
+
       // Aggiorna ordine
       const { data: ordineData, error: ordineError } = await supabase
         .from('ordini')
-        .update(updates)
+        .update(updatesFinali)
         .eq('id', id)
         .select()
         .single()

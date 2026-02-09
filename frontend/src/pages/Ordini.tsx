@@ -11,24 +11,25 @@ type OrdineInsert = Database['public']['Tables']['ordini']['Insert']
 type RigaOrdineInsert = Database['public']['Tables']['righe_ordine']['Insert']
 
 export default function Ordini() {
-    const { 
-        ordini, 
-        clienti,
-        prodotti,
-        loading, 
-        error, 
-        createOrdine, 
-        updateOrdine, 
-        deleteOrdine,
-        cambiaStato,
-        fetchOrdini,
-        fetchOrdineCompleto  // ← AGGIUNGI
-      } = useOrdini()
+  const { 
+    ordini, 
+    clienti,
+    prodotti,
+    loading, 
+    error, 
+    createOrdine, 
+    updateOrdine, 
+    deleteOrdine,
+    cambiaStato,
+    fetchOrdini,
+    fetchOrdineCompleto
+  } = useOrdini()
 
   const [showForm, setShowForm] = useState(false)
   const [editingOrdine, setEditingOrdine] = useState<Ordine | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [filtroStato, setFiltroStato] = useState<string>('tutti')
+  const [filtroEvento, setFiltroEvento] = useState<string>('tutti')
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
 
   const handleOpenNew = () => {
@@ -92,7 +93,10 @@ export default function Ordini() {
     // Filtro stato
     const matchStato = filtroStato === 'tutti' || ordine.stato === filtroStato
 
-    return matchSearch && matchStato
+    // Filtro evento
+    const matchEvento = filtroEvento === 'tutti' || ordine.nome_evento === filtroEvento
+
+    return matchSearch && matchStato && matchEvento
   })
 
   return (
@@ -157,6 +161,23 @@ export default function Ordini() {
               <option value="confermato">Confermato</option>
               <option value="evaso">Evaso</option>
               <option value="annullato">Annullato</option>
+            </select>
+          </div>
+
+          <div className="relative min-w-[200px]">
+            <Filter 
+              className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" 
+              size={20} 
+            />
+            <select
+              value={filtroEvento}
+              onChange={(e) => setFiltroEvento(e.target.value)}
+              className="input pl-10 pr-8"
+            >
+              <option value="tutti">Tutti gli eventi</option>
+              {Array.from(new Set(ordini.map(o => o.nome_evento).filter(Boolean))).map(evento => (
+                <option key={evento} value={evento}>{evento}</option>
+              ))}
             </select>
           </div>
 

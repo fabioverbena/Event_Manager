@@ -1,28 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
-import type { Database } from '@/types/database.types'
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+const supabaseUrl = 'https://hadpnnyxqbxnxjwseovp.supabase.co'
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhhZHBubnl4cWJ4bnhqd3Nlb3ZwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk5ODk2NzMsImV4cCI6MjA4NTU2NTY3M30.rH_QWJ_eyfvZpcAuwyqIg2hXPkdShKf2mlFww2nqtRU'
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error(
-    'Missing Supabase environment variables. Please check your .env file.'
-  )
-}
-
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-  },
-})
-
-export function handleSupabaseError(error: unknown): string {
-  if (error instanceof Error) {
-    return error.message
-  }
-  if (typeof error === 'object' && error !== null && 'message' in error) {
-    return String(error.message)
-  }
-  return 'An unknown error occurred'
-}
+export const supabase = createClient(supabaseUrl, supabaseAnonKey)

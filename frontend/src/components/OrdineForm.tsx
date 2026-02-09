@@ -29,6 +29,7 @@ interface OrdineFormProps {
 export default function OrdineForm({ ordine, clienti, prodotti, onClose, onSave }: OrdineFormProps) {
   const [formData, setFormData] = useState<OrdineInsert>({
     cliente_id: '',
+    nome_evento: '',
     data_ordine: new Date().toISOString().split('T')[0],
     stato: 'bozza',
     subtotale: 0,
@@ -63,21 +64,25 @@ const scontoValore = formData.sconto_percentuale !== null && formData.sconto_per
   : (formData.sconto_valore || 0)
 // Calcola totale
 const totale = subtotale - scontoValore
-  useEffect(() => {
-    setFormData(prev => ({
-      ...prev,
-      subtotale,
-      sconto_valore: scontoValore,
-      totale,
-      ha_espositori: hasEspositori,
-      ha_altri_prodotti: carrello.length > 0,
-    }))
-  }, [subtotale, scontoValore, totale, hasEspositori, carrello.length])
+useEffect(() => {
+  setFormData(prev => ({
+    ...prev,
+    subtotale,
+    // Se sconto_percentuale è impostato, metti sconto_valore a NULL
+    // Altrimenti passa sconto_valore e metti sconto_percentuale a NULL
+    sconto_percentuale: prev.sconto_percentuale !== null && prev.sconto_percentuale !== undefined && prev.sconto_percentuale > 0 
+      ? prev.sconto_percentuale 
+      : null,
+    sconto_valore: scontoValore,
+    totale
+  }))
+}, [subtotale, scontoValore, totale])
 // Carica dati ordine in modifica
 useEffect(() => {
     if (ordine) {
       setFormData({
         cliente_id: ordine.cliente_id,
+        nome_evento: ordine.nome_evento || '',
         data_ordine: ordine.data_ordine,
         stato: ordine.stato,
         subtotale: ordine.subtotale,
@@ -198,9 +203,13 @@ useEffect(() => {
 
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {}
-
+  
     if (!formData.cliente_id) {
       newErrors.cliente_id = ERROR_MESSAGES.REQUIRED_FIELD
+    }
+  
+    if (!formData.nome_evento?.trim()) {
+      newErrors.nome_evento = ERROR_MESSAGES.REQUIRED_FIELD
     }
 
     if (carrello.length === 0) {
@@ -220,12 +229,11 @@ useEffect(() => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-
+  
     if (!validate()) return
-
+  
     setSaving(true)
     try {
-      // Prepara righe ordine
       const righe: RigaOrdineInsert[] = carrello.map((riga, index) => ({
         prodotto_id: riga.prodotto_id,
         quantita: riga.quantita,
@@ -234,13 +242,18 @@ useEffect(() => {
         note_riga: riga.note_riga || null,
         ordine_riga: index + 1,
       }))
-
-      // Aggiungi tipo vendita espositori se necessario
+  
+      // Se c'è sconto_percentuale, azzera sconto_valore nel DB (sarà ricalcolato)
+      // Se c'è solo sconto_valore, azzera sconto_percentuale
+      const hasScontoPercentuale = formData.sconto_percentuale !== null && formData.sconto_percentuale > 0
+      
       const ordineCompleto: OrdineInsert = {
         ...formData,
+        sconto_percentuale: hasScontoPercentuale ? formData.sconto_percentuale : null,
+        sconto_valore: formData.sconto_valore || 0,
         tipo_vendita_espositori: hasEspositori ? tipoVenditaEspositori : null,
       }
-
+  
       await onSave(ordineCompleto, righe)
       onClose()
     } catch (error) {
@@ -266,18 +279,18 @@ useEffect(() => {
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          {/* Cliente e Data */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="label">
-                Cliente <span className="text-red-500">*</span>
-              </label>
-              <select
-                name="cliente_id"
-                value={formData.cliente_id}
-                onChange={handleChange}
-                className={`input ${errors.cliente_id ? 'border-red-500' : ''}`}
-              >
+          {/* Cliente, Evento e Data */}
+<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+  <div>
+    <label className="label">
+      Cliente <span className="text-red-500">*</span>
+    </label>
+    <select
+      name="cliente_id"
+      value={formData.cliente_id}
+      onChange={handleChange}
+      className={`input ${errors.cliente_id ? 'border-red-500' : ''}`}
+    >
                 <option value="">Seleziona cliente...</option>
                 {clienti.map(cliente => (
                   <option key={cliente.id} value={cliente.id}>
@@ -291,16 +304,33 @@ useEffect(() => {
             </div>
 
             <div>
-              <label className="label">Data Ordine</label>
-              <input
-                type="date"
-                name="data_ordine"
-                value={formData.data_ordine}
-                onChange={handleChange}
-                className="input"
-              />
-            </div>
-          </div>
+    <label className="label">
+      Nome Evento <span className="text-red-500">*</span>
+    </label>
+    <input
+      type="text"
+      name="nome_evento"
+      value={formData.nome_evento}
+      onChange={handleChange}
+      className={`input ${errors.nome_evento ? 'border-red-500' : ''}`}
+      placeholder="es: IPM Essen 2026"
+    />
+    {errors.nome_evento && (
+      <p className="text-red-500 text-sm mt-1">{errors.nome_evento}</p>
+    )}
+  </div>
+
+  <div>
+    <label className="label">Data Ordine</label>
+    <input
+      type="date"
+      name="data_ordine"
+      value={formData.data_ordine}
+      onChange={handleChange}
+      className="input"
+    />
+  </div>
+</div>
 
           {/* Aggiunta Prodotti */}
           <div className="card bg-gray-50">

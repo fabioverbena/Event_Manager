@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { Pencil, Trash2, FileText, CheckCircle, XCircle, Clock } from 'lucide-react'
+import { Pencil, Trash2, FileText, CheckCircle, XCircle, Clock, Printer, Eye } from 'lucide-react'
 import { formatCurrency, formatDate, getStatoBadgeColor } from '@/lib/utils'
+import { generateOrdinePDF } from '@/lib/pdfGenerator'
 import type { Database } from '@/types/database.types'
 
 type Ordine = Database['public']['Tables']['ordini']['Row'] & {
@@ -21,6 +22,7 @@ interface OrdiniTableProps {
 export default function OrdiniTable({ ordini, onEdit, onDelete, onCambiaStato }: OrdiniTableProps) {
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
   const [menuStatoAperto, setMenuStatoAperto] = useState<string | null>(null)
+
   const handleDelete = (id: string) => {
     if (deleteConfirm === id) {
       onDelete(id)
@@ -64,6 +66,9 @@ export default function OrdiniTable({ ordini, onEdit, onDelete, onCambiaStato }:
                 Numero
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Evento
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Cliente
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -92,6 +97,12 @@ export default function OrdiniTable({ ordini, onEdit, onDelete, onCambiaStato }:
                     <span className="font-mono font-semibold text-gray-900">
                       #{ordine.numero_ordine.toString().padStart(4, '0')}
                     </span>
+                  </div>
+                </td>
+
+                <td className="px-6 py-4">
+                  <div className="font-medium text-gray-900">
+                    {ordine.nome_evento || 'N/A'}
                   </div>
                 </td>
 
@@ -140,68 +151,72 @@ export default function OrdiniTable({ ordini, onEdit, onDelete, onCambiaStato }:
                 </td>
 
                 <td className="px-6 py-4">
-  <div className="relative">
-    <button
-      onClick={() => setMenuStatoAperto(menuStatoAperto === ordine.id ? null : ordine.id)}
-      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${getStatoBadgeColor(ordine.stato)}`}
-    >
-      {getStatoIcon(ordine.stato)}
-      {ordine.stato.charAt(0).toUpperCase() + ordine.stato.slice(1)}
-    </button>
-    
-    {/* Menu cambio stato */}
-    {menuStatoAperto === ordine.id && ordine.stato !== 'annullato' && ordine.stato !== 'evaso' && (
-      <div className="absolute left-0 top-full mt-1 z-10 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[150px]">
-        {ordine.stato === 'bozza' && (
-          <button
-            onClick={() => {
-              onCambiaStato(ordine.id, 'confermato')
-              setMenuStatoAperto(null)
-            }}
-            className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
-          >
-            <CheckCircle size={14} />
-            Conferma
-          </button>
-        )}
-        {ordine.stato === 'confermato' && (
-          <button
-            onClick={() => {
-              onCambiaStato(ordine.id, 'evaso')
-              setMenuStatoAperto(null)
-            }}
-            className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
-          >
-            <CheckCircle size={14} />
-            Segna Evaso
-          </button>
-        )}
-        <button
-          onClick={() => {
-            onCambiaStato(ordine.id, 'annullato')
-            setMenuStatoAperto(null)
-          }}
-          className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
-        >
-          <XCircle size={14} />
-          Annulla
-        </button>
-      </div>
-    )}
-  </div>
-</td>
+                  <div className="relative">
+                    <button
+                      onClick={() => setMenuStatoAperto(menuStatoAperto === ordine.id ? null : ordine.id)}
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${getStatoBadgeColor(ordine.stato)}`}
+                    >
+                      {getStatoIcon(ordine.stato)}
+                      {ordine.stato.charAt(0).toUpperCase() + ordine.stato.slice(1)}
+                    </button>
+                    
+                    {menuStatoAperto === ordine.id && ordine.stato !== 'annullato' && ordine.stato !== 'evaso' && (
+                      <div className="absolute left-0 top-full mt-1 z-10 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[150px]">
+                        {ordine.stato === 'bozza' && (
+                          <button
+                            onClick={() => {
+                              onCambiaStato(ordine.id, 'confermato')
+                              setMenuStatoAperto(null)
+                            }}
+                            className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                          >
+                            <CheckCircle size={14} />
+                            Conferma
+                          </button>
+                        )}
+                        {ordine.stato === 'confermato' && (
+                          <button
+                            onClick={() => {
+                              onCambiaStato(ordine.id, 'evaso')
+                              setMenuStatoAperto(null)
+                            }}
+                            className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                          >
+                            <CheckCircle size={14} />
+                            Segna Evaso
+                          </button>
+                        )}
+                        <button
+                          onClick={() => {
+                            onCambiaStato(ordine.id, 'annullato')
+                            setMenuStatoAperto(null)
+                          }}
+                          className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                        >
+                          <XCircle size={14} />
+                          Annulla
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </td>
 
                 <td className="px-6 py-4 text-right">
                   <div className="flex justify-end gap-2">
-                    {ordine.stato === 'bozza' && (
-                      <button
-                        onClick={() => onEdit(ordine)}
-                        className="p-2 text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
-                        title="Modifica"
-                      >
-                        <Pencil size={18} />
-                      </button>
-                    )}
+                    <button
+                      onClick={() => generateOrdinePDF(ordine)}
+                      className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                      title="Stampa PDF"
+                    >
+                      <Printer size={18} />
+                    </button>
+                    <button
+                      onClick={() => onEdit(ordine)}
+                      className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                      title={ordine.stato === 'bozza' ? 'Modifica' : 'Visualizza'}
+                    >
+                      {ordine.stato === 'bozza' ? <Pencil size={18} /> : <Eye size={18} />}
+                    </button>
                     <button
                       onClick={() => handleDelete(ordine.id)}
                       className={`p-2 rounded-lg transition-colors ${

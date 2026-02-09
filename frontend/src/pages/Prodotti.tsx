@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { Search, Plus, RefreshCw } from 'lucide-react'
+import { Search, Plus, RefreshCw, Upload } from 'lucide-react'
 import { useProdotti } from '@/hooks/useProdotti'
 import ProdottoForm from '@/components/ProdottoForm'
 import ProdottiTable from '@/components/ProdottiTable'
+import ImportCSV from '@/components/ImportCSV'
 import { SUCCESS_MESSAGES } from '@/lib/constants'
 import type { Database } from '@/types/database.types'
 
@@ -27,6 +28,7 @@ export default function Prodotti() {
   const [editingProdotto, setEditingProdotto] = useState<Prodotto | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
+  const [showImport, setShowImport] = useState(false)
 
   const handleOpenNew = () => {
     setEditingProdotto(null)
@@ -80,6 +82,57 @@ export default function Prodotti() {
     setTimeout(() => setSuccessMessage(null), 3000)
   }
 
+  const handleImportCSV = async (data: any[]) => {
+    const errors: string[] = []
+    let successCount = 0
+  
+    for (let i = 0; i < data.length; i++) {
+      const row = data[i]
+      
+      try {
+        // Trova categoria per nome
+        const categoria = categorie.find(c => 
+          c.nome.toLowerCase() === row.categoria?.toLowerCase()
+        )
+        
+        if (!categoria) {
+          errors.push(`Riga ${i + 1}: categoria "${row.categoria}" non trovata`)
+          continue
+        }
+  
+        // USA CODICE ESISTENTE se presente, altrimenti genera
+        let codice: string
+        if (row.codice_prodotto?.trim()) {
+          codice = row.codice_prodotto.trim()
+        } else {
+          codice = await generateCodiceProdotto(row.nome)
+        }
+  
+        const prodottoData: ProdottoInsert = {
+          categoria_id: categoria.id,
+          codice_prodotto: codice,
+          nome: row.nome,
+          descrizione: row.descrizione || null,
+          prezzo_listino: parseFloat(row.prezzo_listino) || 0,
+          unita_misura: row.unita_misura || 'pz',
+          disponibile: row.disponibile?.toLowerCase() !== 'no',
+          note: row.note || null,
+        }
+  
+        const result = await createProdotto(prodottoData)
+        if (result.success) {
+          successCount++
+        } else {
+          errors.push(`Riga ${i + 1}: ${result.error}`)
+        }
+      } catch (err) {
+        errors.push(`Riga ${i + 1}: errore imprevisto`)
+      }
+    }
+  
+    return { success: successCount, errors }
+  }
+
   return (
     <div>
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
@@ -87,10 +140,16 @@ export default function Prodotti() {
           <h1 className="text-3xl font-bold text-gray-900">Prodotti</h1>
           <p className="text-gray-600 mt-1">Gestisci il catalogo prodotti</p>
         </div>
-        <button onClick={handleOpenNew} className="btn-primary flex items-center gap-2">
-          <Plus size={20} />
-          Nuovo Prodotto
-        </button>
+        <div className="flex gap-3">
+          <button onClick={() => setShowImport(true)} className="btn-secondary flex items-center gap-2">
+            <Upload size={20} />
+            Importa CSV
+          </button>
+          <button onClick={handleOpenNew} className="btn-primary flex items-center gap-2">
+            <Plus size={20} />
+            Nuovo Prodotto
+          </button>
+        </div>
       </div>
 
       {successMessage && (
@@ -158,6 +217,30 @@ export default function Prodotti() {
           onClose={handleCloseForm}
           onSave={handleSave}
           onGenerateCodice={generateCodiceProdotto}
+        />
+      )}
+
+      {showImport && (
+        <ImportCSV
+  onImport={handleImportCSV}
+  onClose={() => setShowImport(false)}
+  columns={[
+    { key: 'codice_prodotto', label: 'Codice Prodotto' },
+    { key: 'codice_prodotto', label: 'Codice Prodotto' },
+    { key: 'nome', label: 'Nome Prodotto', required: true },
+    { key: 'categoria', label: 'Categoria', required: true },
+            { key: 'prezzo_listino', label: 'Prezzo', required: true },
+            { key: 'unita_misura', label: 'Unità Misura' },
+            { key: 'descrizione', label: 'Descrizione' },
+            { key: 'disponibile', label: 'Disponibile' },
+            { key: 'note', label: 'Note' },
+          ]}
+          templateExample={[
+            'codice_prodotto,nome,categoria,prezzo_listino,unita_misura,descrizione,disponibile,note',
+            'LEO2-001,Espositore Refrigerato Medio,Nuovi,1500.00,pz,Espositore per fiori recisi,si,',
+            'Ricambio Motore Standard,Ricambi,250.00,pz,Motore di ricambio universale,si,',
+            'Gemme Premium Box,Gemme,89.90,set,Set 12 gemme assortite,si,',
+          ]}
         />
       )}
     </div>

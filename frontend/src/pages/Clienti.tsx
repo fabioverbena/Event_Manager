@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Search, Plus, RefreshCw } from 'lucide-react'
+import { Search, Plus, RefreshCw, Upload } from 'lucide-react'
+import ImportCSV from '@/components/ImportCSV'
 import { useClienti } from '@/hooks/useClienti'
 import ClienteForm from '@/components/ClienteForm'
 import ClientiTable from '@/components/ClientiTable'
@@ -22,9 +23,46 @@ export default function Clienti() {
   } = useClienti()
 
   const [showForm, setShowForm] = useState(false)
+  const handleImportCSV = async (data: any[]) => {
+    const errors: string[] = []
+    let successCount = 0
+  
+    for (let i = 0; i < data.length; i++) {
+      const row = data[i]
+      
+      try {
+        const clienteData: ClienteInsert = {
+          ragione_sociale: row.ragione_sociale,
+          nome_referente: row.nome_referente || null,
+          email: row.email || null,
+          telefono: row.telefono || null,
+          cellulare: row.cellulare || null,
+          partita_iva: row.partita_iva || null,
+          codice_fiscale: row.codice_fiscale || null,
+          indirizzo: row.indirizzo || null,
+          citta: row.citta || null,
+          cap: row.cap || null,
+          provincia: row.provincia || null,
+          note: row.note || null,
+        }
+  
+        const result = await createCliente(clienteData)
+        if (result.success) {
+          successCount++
+        } else {
+          errors.push(`Riga ${i + 1}: ${result.error}`)
+        }
+      } catch (err) {
+        errors.push(`Riga ${i + 1}: errore imprevisto`)
+      }
+    }
+  
+    return { success: successCount, errors }
+  }
   const [editingCliente, setEditingCliente] = useState<Cliente | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
+  const [showImport, setShowImport] = useState(false)
 
   const handleOpenNew = () => {
     setEditingCliente(null)
@@ -85,11 +123,16 @@ export default function Clienti() {
           <h1 className="text-3xl font-bold text-gray-900">Clienti</h1>
           <p className="text-gray-600 mt-1">Gestisci l'anagrafica clienti</p>
         </div>
-        <button onClick={handleOpenNew} className="btn-primary flex items-center gap-2">
-          <Plus size={20} />
-          Nuovo Cliente
-        </button>
-      </div>
+        <div className="flex gap-3">
+  <button onClick={() => setShowImport(true)} className="btn-secondary flex items-center gap-2">
+    <Upload size={20} />
+    Importa CSV
+  </button>
+  <button onClick={handleOpenNew} className="btn-primary flex items-center gap-2">
+    <Plus size={20} />
+    Nuovo Cliente
+  </button>
+</div>      </div>
 
       {successMessage && (
         <div className="mb-6 bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg flex items-center justify-between">
@@ -149,11 +192,38 @@ export default function Clienti() {
         />
       )}
 
-      {showForm && (
+{showForm && (
         <ClienteForm
           cliente={editingCliente}
           onClose={handleCloseForm}
           onSave={handleSave}
+        />
+      )}
+
+      {showImport && (
+        <ImportCSV
+          title="Clienti"
+          onImport={handleImportCSV}
+          onClose={() => setShowImport(false)}
+          columns={[
+            { key: 'ragione_sociale', label: 'Ragione Sociale', required: true },
+            { key: 'nome_referente', label: 'Nome Referente' },
+            { key: 'email', label: 'Email', validate: (v) => !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) },
+            { key: 'telefono', label: 'Telefono' },
+            { key: 'cellulare', label: 'Cellulare' },
+            { key: 'partita_iva', label: 'Partita IVA', validate: (v) => !v || /^[0-9]{11}$/.test(v.replace(/\s/g, '')) },
+            { key: 'codice_fiscale', label: 'Codice Fiscale' },
+            { key: 'indirizzo', label: 'Indirizzo' },
+            { key: 'citta', label: 'Città' },
+            { key: 'cap', label: 'CAP' },
+            { key: 'provincia', label: 'Provincia' },
+            { key: 'note', label: 'Note' },
+          ]}
+          templateExample={[
+            'ragione_sociale,nome_referente,email,telefono,cellulare,partita_iva,codice_fiscale,indirizzo,citta,cap,provincia,note',
+            'Fioreria Rossi Srl,Mario Rossi,info@rossi.it,06123456,3331234567,12345678901,RSSMRA80A01H501U,Via Roma 1,Roma,00100,RM,Cliente storico',
+            'Fiori Bianchi Spa,Laura Bianchi,bianchi@fiori.it,,,98765432109,,Via Milano 10,Milano,20100,MI,',
+          ]}
         />
       )}
     </div>
