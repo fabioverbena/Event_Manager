@@ -26,33 +26,32 @@ type Ordine = Database['public']['Tables']['ordini']['Row'] & {
   })[]
 }
 
-export const generateOrdinePDF = (ordine: Ordine) => {
-  const doc = new jsPDF()
-  
-  // Logo - Carica da public/logo.jpg
-const logoImg = new Image()
-logoImg.src = '/logo.jpg'
-doc.addImage(logoImg, 'JPEG', 20, 12, 60, 6.7) // x, y, width, height
+type TipoDocumento = 'ordine' | 'preventivo'
 
-// Header - Intestazione (spostato più a destra per logo)
-doc.setFontSize(20)
-doc.setFont('helvetica', 'bold')
-doc.text('FIOR D\'ACQUA', 95, 20)
+const renderDocumentoPage = (doc: jsPDF, ordine: Ordine, tipoDocumento: TipoDocumento) => {
+  const isPreventivo = tipoDocumento === 'preventivo'
+  const labelDocumento = isPreventivo ? 'PREVENTIVO' : 'ORDINE'
 
-doc.setFontSize(10)
-doc.setFont('helvetica', 'normal')
-doc.text('Espositori Refrigerati per Fiori Recisi', 95, 27)
-doc.text('www.fiordacqua.com', 95, 32)
+  const logoImg = new Image()
+  logoImg.src = '/logo.png'
+  doc.addImage(logoImg, 'PNG', 20, 14, 60, 18)
+
+  doc.setFontSize(20)
+  doc.setFont('helvetica', 'bold')
+  doc.text('FIOR D\'ACQUA', 95, 20)
+
+  doc.setFontSize(10)
+  doc.setFont('helvetica', 'normal')
+  doc.text('Espositori Refrigerati per Fiori Recisi', 95, 27)
+  doc.text('www.fiordacqua.com', 95, 32)
   
-  // Linea separatore
   doc.setLineWidth(0.5)
   doc.line(20, 40, 190, 40)
   
-  // Informazioni ordine
   let yPos = 50
   doc.setFontSize(16)
   doc.setFont('helvetica', 'bold')
-  doc.text(`ORDINE #${ordine.numero_ordine.toString().padStart(4, '0')}`, 20, yPos)
+  doc.text(`${labelDocumento} #${ordine.numero_ordine.toString().padStart(4, '0')}`, 20, yPos)
   
   yPos += 10
   doc.setFontSize(10)
@@ -119,14 +118,14 @@ doc.text('www.fiordacqua.com', 95, 32)
     }
     
     if (cliente.partita_iva) {
-        doc.text(`P.IVA: ${cliente.partita_iva}`, 20, yPos)
-        yPos += 5
-      }
-      
-      if (cliente.codice_fiscale) {
-        doc.text(`C.F.: ${cliente.codice_fiscale}`, 20, yPos)
-        yPos += 5
-      }
+      doc.text(`P.IVA: ${cliente.partita_iva}`, 20, yPos)
+      yPos += 5
+    }
+    
+    if (cliente.codice_fiscale) {
+      doc.text(`C.F.: ${cliente.codice_fiscale}`, 20, yPos)
+      yPos += 5
+    }
   }
   
   yPos += 5
@@ -198,10 +197,10 @@ doc.text('www.fiordacqua.com', 95, 32)
   } 
   
   doc.setFont('helvetica', 'bold')
-doc.setFontSize(12)
-const totalY = (ordine.sconto_valore && ordine.sconto_valore > 0) ? finalY + 12 : finalY + 6
-doc.text('TOTALE:', 130, totalY)
-doc.text(formatCurrency(ordine.totale), 185, totalY, { align: 'right' })
+  doc.setFontSize(12)
+  const totalY = (ordine.sconto_valore && ordine.sconto_valore > 0) ? finalY + 12 : finalY + 6
+  doc.text('TOTALE:', 130, totalY)
+  doc.text(formatCurrency(ordine.totale), 185, totalY, { align: 'right' })
   
   // Note
   if (ordine.note) {
@@ -219,19 +218,19 @@ doc.text(formatCurrency(ordine.totale), 185, totalY, { align: 'right' })
   
   // Box footer
   doc.setFillColor(240, 240, 240)
-  doc.rect(0, pageHeight - 35, 210, 35, 'F')
+  doc.rect(0, pageHeight - 39, 210, 39, 'F')
   
   // Linea sopra footer
   doc.setDrawColor(34, 139, 34)
   doc.setLineWidth(0.5)
-  doc.line(0, pageHeight - 35, 210, pageHeight - 35)
+  doc.line(0, pageHeight - 39, 210, pageHeight - 39)
   
   // Contenuto footer
   doc.setFontSize(8)
   doc.setTextColor(0, 0, 0)
   doc.setFont('helvetica', 'bold')
   
-  let footerY = pageHeight - 28
+  let footerY = pageHeight - 32
   doc.text('Fior di Verbena di Zanotti Leonardo', 105, footerY, { align: 'center' })
   
   footerY += 4
@@ -243,6 +242,9 @@ doc.text(formatCurrency(ordine.totale), 185, totalY, { align: 'right' })
   
   footerY += 4
   doc.text('Email: info@fiordacqua.com - fiordacqua@gmail.com', 105, footerY, { align: 'center' })
+
+  footerY += 4
+  doc.text('IBAN: SM 63 L 08540 09800 000060191115', 105, footerY, { align: 'center' })
   
   footerY += 5
   doc.setFontSize(7)
@@ -253,8 +255,32 @@ doc.text(formatCurrency(ordine.totale), 185, totalY, { align: 'right' })
     footerY,
     { align: 'center' }
   )
-  
-  // Salva PDF
-  const fileName = `Ordine_${ordine.numero_ordine.toString().padStart(4, '0')}_${ordine.clienti?.ragione_sociale || 'Cliente'}.pdf`
-  doc.save(fileName)
+}
+
+const getDocumentoFileName = (ordine: Ordine, tipoDocumento: TipoDocumento, numeroCopie: number) => {
+  const prefix = tipoDocumento === 'preventivo' ? 'Preventivo' : 'Ordine'
+  const copieSuffix = numeroCopie > 1 ? `_copie${numeroCopie}` : ''
+  return `${prefix}_${ordine.numero_ordine.toString().padStart(4, '0')}_${ordine.clienti?.ragione_sociale || 'Cliente'}${copieSuffix}.pdf`
+}
+
+export const generateOrdinePDF = (ordine: Ordine, numeroCopie: number = 1) => {
+  const doc = new jsPDF()
+
+  for (let i = 0; i < numeroCopie; i++) {
+    if (i > 0) doc.addPage()
+    renderDocumentoPage(doc, ordine, 'ordine')
+  }
+
+  doc.save(getDocumentoFileName(ordine, 'ordine', numeroCopie))
+}
+
+export const generatePreventivoPDF = (ordine: Ordine, numeroCopie: number = 1) => {
+  const doc = new jsPDF()
+
+  for (let i = 0; i < numeroCopie; i++) {
+    if (i > 0) doc.addPage()
+    renderDocumentoPage(doc, ordine, 'preventivo')
+  }
+
+  doc.save(getDocumentoFileName(ordine, 'preventivo', numeroCopie))
 }

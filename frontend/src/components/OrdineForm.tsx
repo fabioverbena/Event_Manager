@@ -1,4 +1,5 @@
 import ProdottoAutocomplete from './ProdottoAutocomplete'
+import ClienteAutocomplete from './ClienteAutocomplete'
 import { getEventoCorrente } from '@/lib/eventoCorrente'
 import { useState, useEffect } from 'react'
 import { X, Plus, Trash2, ShoppingCart } from 'lucide-react'
@@ -306,23 +307,26 @@ export default function OrdineForm({ ordine, clienti, prodotti, onClose, onSave 
     <label className="label">
       Cliente <span className="text-red-500">*</span>
     </label>
-    <select
-      name="cliente_id"
-      value={formData.cliente_id ?? ''}
-      onChange={handleChange}
-      className={`input ${errors.cliente_id ? 'border-red-500' : ''}`}
-    >
-                <option value="">Seleziona cliente...</option>
-                {(clienti ?? []).map(cliente => (
-                  <option key={cliente.id} value={cliente.id}>
-                    {cliente.ragione_sociale}
-                  </option>
-                ))}
-              </select>
-              {errors.cliente_id && (
-                <p className="text-red-500 text-sm mt-1">{errors.cliente_id}</p>
-              )}
-            </div>
+    <div className={errors.cliente_id ? 'rounded-md ring-1 ring-red-500' : ''}>
+      <ClienteAutocomplete
+        clienti={clienti ?? []}
+        selectedClienteId={formData.cliente_id ?? ''}
+        onSelect={(cliente) => {
+          setFormData(prev => ({ ...prev, cliente_id: cliente.id }))
+          if (errors.cliente_id) {
+            setErrors(prev => ({ ...prev, cliente_id: '' }))
+          }
+        }}
+        onClear={() => {
+          setFormData(prev => ({ ...prev, cliente_id: '' }))
+        }}
+        placeholder="Cerca cliente per ragione sociale..."
+      />
+    </div>
+    {errors.cliente_id && (
+      <p className="text-red-500 text-sm mt-1">{errors.cliente_id}</p>
+    )}
+  </div>
 
             <div>
     <label className="label">

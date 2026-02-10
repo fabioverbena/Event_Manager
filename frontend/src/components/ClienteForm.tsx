@@ -70,7 +70,12 @@ export default function ClienteForm({ cliente, onClose, onSave }: ClienteFormPro
       newErrors.email = ERROR_MESSAGES.INVALID_EMAIL
     }
 
-    if (formData.partita_iva && !validatePartitaIVA(formData.partita_iva)) {
+    if (!formData.cellulare?.trim()) {
+      newErrors.cellulare = ERROR_MESSAGES.REQUIRED_FIELD
+    }
+
+    const partitaIvaTrim = formData.partita_iva?.trim() || ''
+    if (partitaIvaTrim && (partitaIvaTrim.length !== 11 || !validatePartitaIVA(partitaIvaTrim))) {
       newErrors.partita_iva = ERROR_MESSAGES.INVALID_PARTITA_IVA
     }
 
@@ -172,15 +177,20 @@ export default function ClienteForm({ cliente, onClose, onSave }: ClienteFormPro
             </div>
 
             <div>
-              <label className="label">Cellulare</label>
+              <label className="label">
+                Cellulare <span className="text-red-500">*</span>
+              </label>
               <input
                 type="tel"
                 name="cellulare"
                 value={formData.cellulare ?? ''}
                 onChange={handleChange}
-                className="input"
+                className={`input ${errors.cellulare ? 'border-red-500' : ''}`}
                 placeholder="333 1234567"
               />
+              {errors.cellulare && (
+                <p className="text-red-500 text-sm mt-1">{errors.cellulare}</p>
+              )}
             </div>
           </div>
 

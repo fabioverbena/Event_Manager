@@ -3,6 +3,16 @@ import autoTable from 'jspdf-autotable'
 
 type TipoModulo = 'Espositori' | 'Ricambi' | 'Gemme' | 'Nido'
 
+const MODULO_BOTTOM_MARGIN = 45
+
+const loadImage = (src: string) =>
+  new Promise<HTMLImageElement>((resolve, reject) => {
+    const img = new Image()
+    img.onload = () => resolve(img)
+    img.onerror = () => reject(new Error(`Failed to load image: ${src}`))
+    img.src = src
+  })
+
 interface Prodotto {
   codice_prodotto: string
   nome: string
@@ -13,7 +23,7 @@ interface Prodotto {
   }
 }
 
-export const generateModuloVuoto = (
+export const generateModuloVuoto = async (
   tipo: TipoModulo, 
   numeroCopie: number = 1,
   prodottiDB?: Prodotto[],
@@ -22,6 +32,13 @@ export const generateModuloVuoto = (
   console.log('🚀 generateModuloVuoto CHIAMATA!', { tipo, numeroCopie, prodottiDB: prodottiDB?.length })
   
   const doc = new jsPDF()
+
+  let logoImg: HTMLImageElement | null = null
+  try {
+    logoImg = await loadImage(`${import.meta.env.BASE_URL}logo.png`)
+  } catch (e) {
+    console.error(e)
+  }
 
   // Filtra prodotti per tipo se forniti
   let prodottiFiltrati: { codice: string; nome: string; prezzo: number }[] = []
@@ -69,9 +86,9 @@ export const generateModuloVuoto = (
     }
 
     // Logo
-    const logoImg = new Image()
-    logoImg.src = '/logo.jpg'
-    doc.addImage(logoImg, 'JPEG', 20, 10, 60, 6.7)
+    if (logoImg) {
+      doc.addImage(logoImg, 'PNG', 20, 8, 60, 18)
+    }
 
     // Header
     doc.setFontSize(18)
@@ -179,6 +196,7 @@ export const generateModuloVuoto = (
       head: [['Codice', 'Descrizione Prodotto', 'Q.tà', 'Prezzo €', 'Totale €']],
       body: righeTabella,
       theme: 'grid',
+      margin: { bottom: MODULO_BOTTOM_MARGIN },
       headStyles: {
         fillColor: [34, 139, 34],
         textColor: [255, 255, 255],
@@ -226,49 +244,55 @@ export const generateModuloVuoto = (
     // Condizioni Trasporto
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(9)
-    doc.text('CONDIZIONI TRASPORTO:', 20, finalY + 18)
+    doc.text('CONDIZIONI TRASPORTO:', 20, finalY + 15)
 
     doc.setFont('helvetica', 'normal')
     doc.setLineWidth(0.1)
-    doc.rect(20, finalY + 20, 3, 3)
-    doc.text('Franco Destino', 25, finalY + 23)
+    doc.rect(20, finalY + 17, 3, 3)
+    doc.text('Franco Destino', 25, finalY + 20)
 
-    doc.rect(70, finalY + 20, 3, 3)
-    doc.text('Porto Assegnato', 75, finalY + 23)
+    doc.rect(70, finalY + 17, 3, 3)
+    doc.text('Porto Assegnato', 75, finalY + 20)
 
     // Note
     doc.setFont('helvetica', 'bold')
-    doc.text('Note:', 20, finalY + 30)
+    doc.text('Note:', 20, finalY + 26)
     doc.setFont('helvetica', 'normal')
-    doc.line(20, finalY + 32, 190, finalY + 32)
-    doc.line(20, finalY + 37, 190, finalY + 37)
+    doc.line(20, finalY + 28, 190, finalY + 28)
+    doc.line(20, finalY + 33, 190, finalY + 33)
 
     // Footer
     const pageHeight = doc.internal.pageSize.height
 
+    const footerHeight = 18
+    const footerTop = pageHeight - footerHeight
+
     doc.setFillColor(240, 240, 240)
-    doc.rect(0, pageHeight - 25, 210, 25, 'F')
+    doc.rect(0, footerTop, 210, footerHeight, 'F')
 
     doc.setDrawColor(34, 139, 34)
     doc.setLineWidth(0.5)
-    doc.line(0, pageHeight - 25, 210, pageHeight - 25)
+    doc.line(0, footerTop, 210, footerTop)
 
-    doc.setFontSize(7)
+    doc.setFontSize(6)
     doc.setTextColor(0, 0, 0)
     doc.setFont('helvetica', 'bold')
 
-    let footerY = pageHeight - 20
+    let footerY = footerTop + 4
     doc.text('Fior di Verbena di Zanotti Leonardo', 105, footerY, { align: 'center' })
 
-    footerY += 3.5
+    footerY += 3
     doc.setFont('helvetica', 'normal')
     doc.text('Via Cà dei Lunghi, 54 - Borgo Maggiore 47894 - San Marino', 105, footerY, { align: 'center' })
 
-    footerY += 3.5
+    footerY += 3
     doc.text('Tel: 0549 907005 - Cell: 373 7170588', 105, footerY, { align: 'center' })
 
-    footerY += 3.5
+    footerY += 3
     doc.text('Email: info@fiordacqua.com - fiordacqua@gmail.com', 105, footerY, { align: 'center' })
+
+    footerY += 3
+    doc.text('IBAN: SM 63 L 08540 09800 000060191115', 105, footerY, { align: 'center' })
   }
 
   // Salva PDF

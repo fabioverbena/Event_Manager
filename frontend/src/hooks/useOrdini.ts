@@ -72,6 +72,7 @@ export function useOrdini() {
         .from('ordini')
         .select('*, clienti(*), righe_ordine(*, prodotti(id, nome, codice_prodotto))')
         .order('numero_ordine', { ascending: false })
+        .order('ordine_riga', { ascending: true, foreignTable: 'righe_ordine' })
 
       if (fetchError) throw fetchError
 

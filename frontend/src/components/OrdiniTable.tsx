@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Pencil, Trash2, FileText, CheckCircle, XCircle, Clock, Printer, Eye } from 'lucide-react'
 import { formatCurrency, formatDate, getStatoBadgeColor } from '@/lib/utils'
-import { generateOrdinePDF } from '@/lib/pdfGenerator'
+import StampaOrdineModal from '@/components/StampaOrdineModal'
 import type { Database } from '@/types/database.types'
 
 type Ordine = Database['public']['Tables']['ordini']['Row'] & {
@@ -10,6 +10,11 @@ type Ordine = Database['public']['Tables']['ordini']['Row'] & {
     ragione_sociale: string
     citta: string | null
   } | null
+  righe_ordine?: {
+    prodotti?: {
+      nome: string
+    } | null
+  }[]
 }
 
 interface OrdiniTableProps {
@@ -22,6 +27,7 @@ interface OrdiniTableProps {
 export default function OrdiniTable({ ordini, onEdit, onDelete, onCambiaStato }: OrdiniTableProps) {
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
   const [menuStatoAperto, setMenuStatoAperto] = useState<string | null>(null)
+  const [ordineStampa, setOrdineStampa] = useState<Ordine | null>(null)
 
   const handleDelete = (id: string) => {
     if (deleteConfirm === id) {
@@ -75,7 +81,7 @@ export default function OrdiniTable({ ordini, onEdit, onDelete, onCambiaStato }:
                 Data
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Tipo
+                Art.
               </th>
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Totale
@@ -120,22 +126,8 @@ export default function OrdiniTable({ ordini, onEdit, onDelete, onCambiaStato }:
                 </td>
 
                 <td className="px-6 py-4">
-                  <div className="flex flex-col gap-1">
-                    {ordine.ha_espositori && (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">
-                        Espositori
-                        {ordine.tipo_vendita_espositori && (
-                          <span className="ml-1">
-                            ({ordine.tipo_vendita_espositori === 'diretto' ? 'Diretto' : 'Leasing'})
-                          </span>
-                        )}
-                      </span>
-                    )}
-                    {ordine.ha_altri_prodotti && !ordine.ha_espositori && (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
-                        Altri prodotti
-                      </span>
-                    )}
+                  <div className="font-medium text-gray-900">
+                    {ordine.righe_ordine?.[0]?.prodotti?.nome?.split(' ')?.[0] || 'N/A'}
                   </div>
                 </td>
 
@@ -204,7 +196,7 @@ export default function OrdiniTable({ ordini, onEdit, onDelete, onCambiaStato }:
                 <td className="px-6 py-4 text-right">
                   <div className="flex justify-end gap-2">
                     <button
-                      onClick={() => generateOrdinePDF(ordine as any)}
+                      onClick={() => setOrdineStampa(ordine)}
                       className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
                       title="Stampa PDF"
                     >
@@ -244,6 +236,13 @@ export default function OrdiniTable({ ordini, onEdit, onDelete, onCambiaStato }:
           Valore totale: {formatCurrency(ordini.reduce((sum, o) => sum + o.totale, 0))}
         </p>
       </div>
+
+      {ordineStampa && (
+        <StampaOrdineModal
+          ordine={ordineStampa as any}
+          onClose={() => setOrdineStampa(null)}
+        />
+      )}
     </div>
   )
 }
