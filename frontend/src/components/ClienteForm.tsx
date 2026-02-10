@@ -121,7 +121,7 @@ export default function ClienteForm({ cliente, onClose, onSave }: ClienteFormPro
             <input
               type="text"
               name="ragione_sociale"
-              value={formData.ragione_sociale}
+              value={formData.ragione_sociale ?? ''}
               onChange={handleChange}
               className={`input ${errors.ragione_sociale ? 'border-red-500' : ''}`}
               placeholder="Es: Fioreria Rossi Srl"
@@ -136,7 +136,7 @@ export default function ClienteForm({ cliente, onClose, onSave }: ClienteFormPro
             <input
               type="text"
               name="nome_referente"
-              value={formData.nome_referente}
+              value={formData.nome_referente ?? ''}
               onChange={handleChange}
               className="input"
               placeholder="Es: Mario Rossi"
@@ -149,7 +149,7 @@ export default function ClienteForm({ cliente, onClose, onSave }: ClienteFormPro
               <input
                 type="email"
                 name="email"
-                value={formData.email}
+                value={formData.email ?? ''}
                 onChange={handleChange}
                 className={`input ${errors.email ? 'border-red-500' : ''}`}
                 placeholder="info@esempio.it"
@@ -164,7 +164,7 @@ export default function ClienteForm({ cliente, onClose, onSave }: ClienteFormPro
               <input
                 type="tel"
                 name="telefono"
-                value={formData.telefono}
+                value={formData.telefono ?? ''}
                 onChange={handleChange}
                 className="input"
                 placeholder="06 1234567"
@@ -176,7 +176,7 @@ export default function ClienteForm({ cliente, onClose, onSave }: ClienteFormPro
               <input
                 type="tel"
                 name="cellulare"
-                value={formData.cellulare}
+                value={formData.cellulare ?? ''}
                 onChange={handleChange}
                 className="input"
                 placeholder="333 1234567"
@@ -190,7 +190,7 @@ export default function ClienteForm({ cliente, onClose, onSave }: ClienteFormPro
               <input
                 type="text"
                 name="partita_iva"
-                value={formData.partita_iva}
+                value={formData.partita_iva ?? ''}
                 onChange={handleChange}
                 className={`input ${errors.partita_iva ? 'border-red-500' : ''}`}
                 placeholder="12345678901"
@@ -206,7 +206,7 @@ export default function ClienteForm({ cliente, onClose, onSave }: ClienteFormPro
               <input
                 type="text"
                 name="codice_fiscale"
-                value={formData.codice_fiscale}
+                value={formData.codice_fiscale ?? ''}
                 onChange={handleChange}
                 className={`input ${errors.codice_fiscale ? 'border-red-500' : ''}`}
                 placeholder="RSSMRA80A01H501U"
@@ -223,7 +223,7 @@ export default function ClienteForm({ cliente, onClose, onSave }: ClienteFormPro
             <input
               type="text"
               name="indirizzo"
-              value={formData.indirizzo}
+              value={formData.indirizzo ?? ''}
               onChange={handleChange}
               className="input"
               placeholder="Via Roma 123"
@@ -236,7 +236,7 @@ export default function ClienteForm({ cliente, onClose, onSave }: ClienteFormPro
               <input
                 type="text"
                 name="citta"
-                value={formData.citta}
+                value={formData.citta ?? ''}
                 onChange={handleChange}
                 className="input"
                 placeholder="Roma"
@@ -248,7 +248,7 @@ export default function ClienteForm({ cliente, onClose, onSave }: ClienteFormPro
               <input
                 type="text"
                 name="cap"
-                value={formData.cap}
+                value={formData.cap ?? ''}
                 onChange={handleChange}
                 className="input"
                 placeholder="00100"
@@ -260,7 +260,7 @@ export default function ClienteForm({ cliente, onClose, onSave }: ClienteFormPro
               <label className="label">Provincia</label>
               <select
                 name="provincia"
-                value={formData.provincia}
+                value={formData.provincia ?? ''}
                 onChange={handleChange}
                 className="input"
               >
@@ -278,7 +278,7 @@ export default function ClienteForm({ cliente, onClose, onSave }: ClienteFormPro
             <label className="label">Note</label>
             <textarea
               name="note"
-              value={formData.note}
+              value={formData.note ?? ''}
               onChange={handleChange}
               className="input"
               rows={3}
