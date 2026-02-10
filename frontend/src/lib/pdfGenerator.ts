@@ -28,13 +28,44 @@ type Ordine = Database['public']['Tables']['ordini']['Row'] & {
 
 type TipoDocumento = 'ordine' | 'preventivo'
 
-const renderDocumentoPage = (doc: jsPDF, ordine: Ordine, tipoDocumento: TipoDocumento) => {
+const loadImage = (src: string) =>
+  new Promise<HTMLImageElement>((resolve, reject) => {
+    const img = new Image()
+    img.onload = () => resolve(img)
+    img.onerror = () => reject(new Error(`Failed to load image: ${src}`))
+    img.src = src
+  })
+
+const loadFirstAvailableImage = async (sources: string[]) => {
+  for (const src of sources) {
+    try {
+      return await loadImage(src)
+    } catch {
+      // ignore
+    }
+  }
+  throw new Error(`Failed to load image from sources: ${sources.join(', ')}`)
+}
+
+const renderDocumentoPage = async (doc: jsPDF, ordine: Ordine, tipoDocumento: TipoDocumento) => {
   const isPreventivo = tipoDocumento === 'preventivo'
   const labelDocumento = isPreventivo ? 'PREVENTIVO' : 'ORDINE'
 
-  const logoImg = new Image()
-  logoImg.src = `${import.meta.env.BASE_URL}logo.png`
-  doc.addImage(logoImg, 'PNG', 20, 14, 60, 18)
+  let logoImg: HTMLImageElement | null = null
+  try {
+    const baseUrl = import.meta.env.BASE_URL || '/'
+    logoImg = await loadFirstAvailableImage([
+      `${baseUrl}logo.png`,
+      'logo.png',
+      '/logo.png',
+    ])
+  } catch (e) {
+    console.error(e)
+  }
+
+  if (logoImg) {
+    doc.addImage(logoImg, 'PNG', 20, 14, 60, 18)
+  }
 
   doc.setFontSize(20)
   doc.setFont('helvetica', 'bold')
@@ -263,23 +294,23 @@ const getDocumentoFileName = (ordine: Ordine, tipoDocumento: TipoDocumento, nume
   return `${prefix}_${ordine.numero_ordine.toString().padStart(4, '0')}_${ordine.clienti?.ragione_sociale || 'Cliente'}${copieSuffix}.pdf`
 }
 
-export const generateOrdinePDF = (ordine: Ordine, numeroCopie: number = 1) => {
+export const generateOrdinePDF = async (ordine: Ordine, numeroCopie: number = 1) => {
   const doc = new jsPDF()
 
   for (let i = 0; i < numeroCopie; i++) {
     if (i > 0) doc.addPage()
-    renderDocumentoPage(doc, ordine, 'ordine')
+    await renderDocumentoPage(doc, ordine, 'ordine')
   }
 
   doc.save(getDocumentoFileName(ordine, 'ordine', numeroCopie))
 }
 
-export const generatePreventivoPDF = (ordine: Ordine, numeroCopie: number = 1) => {
+export const generatePreventivoPDF = async (ordine: Ordine, numeroCopie: number = 1) => {
   const doc = new jsPDF()
 
   for (let i = 0; i < numeroCopie; i++) {
     if (i > 0) doc.addPage()
-    renderDocumentoPage(doc, ordine, 'preventivo')
+    await renderDocumentoPage(doc, ordine, 'preventivo')
   }
 
   doc.save(getDocumentoFileName(ordine, 'preventivo', numeroCopie))

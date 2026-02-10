@@ -20,11 +20,11 @@ export default function StampaOrdineModal({ ordine, onClose }: StampaOrdineModal
   const [tipoDocumento, setTipoDocumento] = useState<TipoDocumento>('ordine')
   const [numeroCopie, setNumeroCopie] = useState<number>(1)
 
-  const handleStampa = () => {
+  const handleStampa = async () => {
     if (tipoDocumento === 'preventivo') {
-      generatePreventivoPDF(ordine as any, numeroCopie)
+      await generatePreventivoPDF(ordine as any, numeroCopie)
     } else {
-      generateOrdinePDF(ordine as any, numeroCopie)
+      await generateOrdinePDF(ordine as any, numeroCopie)
     }
     onClose()
   }

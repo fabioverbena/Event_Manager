@@ -2,15 +2,23 @@ import { Outlet, NavLink } from 'react-router-dom'
 import { LayoutDashboard, Users, Package, ShoppingCart } from 'lucide-react'
 
 export default function Layout() {
+  const baseUrl = import.meta.env.BASE_URL || '/'
+  const normalizedBaseUrl = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`
+
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-primary-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-xl">EM</span>
-              </div>
+              <img
+                src={`${normalizedBaseUrl}logo.png`}
+                alt="Fior d'acqua"
+                className="h-10 w-auto"
+                onError={(e) => {
+                  e.currentTarget.src = '/logo.png'
+                }}
+              />
               <div>
                 <h1 className="text-xl font-bold text-gray-900">EVENT MANAGER</h1>
                 <p className="text-xs text-gray-500">Fior d'Acqua</p>

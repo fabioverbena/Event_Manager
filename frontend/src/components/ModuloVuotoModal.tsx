@@ -36,9 +36,13 @@ export default function ModuloVuotoModal({ onClose, eventoCorrente }: ModuloVuot
     }
   }
 
-  const handleStampa = () => {
-    generateModuloVuoto(tipoSelezionato, numeroCopie, prodotti, eventoCorrente)
-    onClose()
+  const handleStampa = async () => {
+    try {
+      await generateModuloVuoto(tipoSelezionato, numeroCopie, prodotti, eventoCorrente)
+      onClose()
+    } catch (error) {
+      console.error('Errore generazione modulo PDF:', error)
+    }
   }
 
   return (
