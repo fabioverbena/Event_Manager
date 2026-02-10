@@ -33,7 +33,7 @@ const renderDocumentoPage = (doc: jsPDF, ordine: Ordine, tipoDocumento: TipoDocu
   const labelDocumento = isPreventivo ? 'PREVENTIVO' : 'ORDINE'
 
   const logoImg = new Image()
-  logoImg.src = '/logo.png'
+  logoImg.src = `${import.meta.env.BASE_URL}logo.png`
   doc.addImage(logoImg, 'PNG', 20, 14, 60, 18)
 
   doc.setFontSize(20)
