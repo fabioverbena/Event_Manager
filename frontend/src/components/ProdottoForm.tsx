@@ -261,7 +261,7 @@ export default function ProdottoForm({ prodotto, categorie, onClose, onSave, onG
             <label className="label">Descrizione</label>
             <textarea
               name="descrizione"
-              value={formData.descrizione}
+              value={formData.descrizione ?? ''}
               onChange={handleChange}
               className="input"
               rows={3}
@@ -273,7 +273,7 @@ export default function ProdottoForm({ prodotto, categorie, onClose, onSave, onG
             <label className="label">Note interne</label>
             <textarea
               name="note"
-              value={formData.note}
+              value={formData.note ?? ''}
               onChange={handleChange}
               className="input"
               rows={2}

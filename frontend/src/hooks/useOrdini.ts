@@ -10,6 +10,15 @@ type RigaOrdineInsert = Database['public']['Tables']['righe_ordine']['Insert']
 type Cliente = Database['public']['Tables']['clienti']['Row']
 type Prodotto = Database['public']['Tables']['prodotti']['Row']
 
+type ProdottoConCategoria = Prodotto & {
+  categorie?: {
+    nome: string
+    tipo_ordine: 'espositori' | 'non_espositori'
+  } | null
+}
+
+type RigaOrdineCreate = Omit<RigaOrdineInsert, 'ordine_id'>
+
 export interface OrdineCompleto extends Ordine {
   clienti?: Cliente
   righe_ordine?: (RigaOrdine & {
@@ -20,7 +29,7 @@ export interface OrdineCompleto extends Ordine {
 export function useOrdini() {
   const [ordini, setOrdini] = useState<OrdineCompleto[]>([])
   const [clienti, setClienti] = useState<Cliente[]>([])
-  const [prodotti, setProdotti] = useState<Prodotto[]>([])
+  const [prodotti, setProdotti] = useState<ProdottoConCategoria[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -90,10 +99,10 @@ export function useOrdini() {
     }
   }
 
-  const createOrdine = async (ordine: OrdineInsert, righe: RigaOrdineInsert[]) => {
+  const createOrdine = async (ordine: OrdineInsert, righe: RigaOrdineCreate[]) => {
     try {
       // Forza calcoli corretti
-      const subtotaleCalcolato = righe.reduce((sum, r) => sum + r.subtotale_riga, 0)
+      const subtotaleCalcolato = righe.reduce((sum, r) => sum + (r.subtotale_riga ?? 0), 0)
       const scontoCalcolato = ordine.sconto_percentuale && ordine.sconto_percentuale > 0
         ? (subtotaleCalcolato * ordine.sconto_percentuale) / 100 
         : (ordine.sconto_valore || 0)
@@ -136,7 +145,7 @@ export function useOrdini() {
     }
   }
 
-  const updateOrdine = async (id: string, updates: OrdineUpdate, righe?: RigaOrdineInsert[]) => {
+  const updateOrdine = async (id: string, updates: OrdineUpdate, righe?: RigaOrdineCreate[]) => {
     try {
       // DEBUG: Vediamo cosa arriva
       console.log('=== UPDATE ORDINE DEBUG ===')
@@ -146,7 +155,7 @@ export function useOrdini() {
       // Forza calcoli corretti se ci sono righe
       let updatesFinali = updates
       if (righe) {
-        const subtotaleCalcolato = righe.reduce((sum, r) => sum + r.subtotale_riga, 0)
+        const subtotaleCalcolato = righe.reduce((sum, r) => sum + (r.subtotale_riga ?? 0), 0)
         console.log('Subtotale calcolato da righe:', subtotaleCalcolato)
         
         const scontoCalcolato = updates.sconto_percentuale && updates.sconto_percentuale > 0

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Search, Plus, RefreshCw, Filter } from 'lucide-react'
-import { useOrdini } from '@/hooks/useOrdini'
+import { useOrdini, type OrdineCompleto } from '@/hooks/useOrdini'
 import OrdineForm from '@/components/OrdineForm'
 import OrdiniTable from '@/components/OrdiniTable'
 import { SUCCESS_MESSAGES } from '@/lib/constants'
@@ -9,6 +9,7 @@ import type { Database } from '@/types/database.types'
 type Ordine = Database['public']['Tables']['ordini']['Row']
 type OrdineInsert = Database['public']['Tables']['ordini']['Insert']
 type RigaOrdineInsert = Database['public']['Tables']['righe_ordine']['Insert']
+type RigaOrdineCreate = Omit<RigaOrdineInsert, 'ordine_id'>
 
 export default function Ordini() {
   const { 
@@ -26,7 +27,8 @@ export default function Ordini() {
   } = useOrdini()
 
   const [showForm, setShowForm] = useState(false)
-  const [editingOrdine, setEditingOrdine] = useState<Ordine | null>(null)
+  const [editingOrdine, setEditingOrdine] = useState<OrdineCompleto | null>(null)
+
   const [searchQuery, setSearchQuery] = useState('')
   const [filtroStato, setFiltroStato] = useState<string>('tutti')
   const [filtroEvento, setFiltroEvento] = useState<string>('tutti')
@@ -50,7 +52,7 @@ export default function Ordini() {
     setEditingOrdine(null)
   }
 
-  const handleSave = async (data: OrdineInsert, righe: RigaOrdineInsert[]) => {
+  const handleSave = async (data: OrdineInsert, righe: RigaOrdineCreate[]) => {
     if (editingOrdine) {
       const result = await updateOrdine(editingOrdine.id, data, righe)
       if (result.success) {
@@ -175,7 +177,13 @@ export default function Ordini() {
               className="input pl-10 pr-8"
             >
               <option value="tutti">Tutti gli eventi</option>
-              {Array.from(new Set(ordini.map(o => o.nome_evento).filter(Boolean))).map(evento => (
+              {Array.from(
+                new Set(
+                  ordini
+                    .map(o => o.nome_evento)
+                    .filter((e): e is string => Boolean(e))
+                )
+              ).map(evento => (
                 <option key={evento} value={evento}>{evento}</option>
               ))}
             </select>

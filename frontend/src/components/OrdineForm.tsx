@@ -7,9 +7,26 @@ import { ERROR_MESSAGES, LIMITS } from '@/lib/constants'
 import type { Database } from '@/types/database.types'
 type Ordine = Database['public']['Tables']['ordini']['Row']
 type OrdineInsert = Database['public']['Tables']['ordini']['Insert']
+type RigaOrdine = Database['public']['Tables']['righe_ordine']['Row']
 type RigaOrdineInsert = Database['public']['Tables']['righe_ordine']['Insert']
+type RigaOrdineCreate = Omit<RigaOrdineInsert, 'ordine_id'>
 type Cliente = Database['public']['Tables']['clienti']['Row']
 type Prodotto = Database['public']['Tables']['prodotti']['Row']
+
+type ProdottoConCategoria = Prodotto & {
+  categorie?: {
+    nome: string
+    tipo_ordine: 'espositori' | 'non_espositori'
+  } | null
+}
+
+type OrdineCompleto = Ordine & {
+  righe_ordine?: Array<RigaOrdine & {
+    prodotti?: Prodotto
+  }>
+}
+
+type RigaOrdineCompleta = NonNullable<OrdineCompleto['righe_ordine']>[number]
 
 interface RigaCarrello {
   prodotto_id: string
@@ -20,17 +37,17 @@ interface RigaCarrello {
 }
 
 interface OrdineFormProps {
-  ordine?: Ordine | null
+  ordine?: OrdineCompleto | null
   clienti: Cliente[]
-  prodotti: Prodotto[]
+  prodotti: ProdottoConCategoria[]
   onClose: () => void
-  onSave: (ordine: OrdineInsert, righe: RigaOrdineInsert[]) => Promise<void>
+  onSave: (ordine: OrdineInsert, righe: RigaOrdineCreate[]) => Promise<void>
 }
 
 export default function OrdineForm({ ordine, clienti, prodotti, onClose, onSave }: OrdineFormProps) {
   const [formData, setFormData] = useState<OrdineInsert>({
     cliente_id: '',
-    nome_evento: getEventoCorrente() || '',  // ← CAMBIATA SOLO QUESTA RIGA
+    nome_evento: getEventoCorrente() || '',
     data_ordine: new Date().toISOString().split('T')[0],
     stato: 'bozza',
     subtotale: 0,
@@ -59,27 +76,29 @@ export default function OrdineForm({ ordine, clienti, prodotti, onClose, onSave 
   const subtotale = carrello.reduce((sum, riga) => sum + (riga.quantita * riga.prezzo_unitario), 0)
 
   // Calcola sconto
-const scontoPercentuale = formData.sconto_percentuale || 0
-const scontoValore = formData.sconto_percentuale !== null && formData.sconto_percentuale !== undefined
-  ? (subtotale * scontoPercentuale) / 100
-  : (formData.sconto_valore || 0)
-// Calcola totale
-const totale = subtotale - scontoValore
-useEffect(() => {
-  setFormData(prev => ({
-    ...prev,
-    subtotale,
-    // Se sconto_percentuale è impostato, metti sconto_valore a NULL
-    // Altrimenti passa sconto_valore e metti sconto_percentuale a NULL
-    sconto_percentuale: prev.sconto_percentuale !== null && prev.sconto_percentuale !== undefined && prev.sconto_percentuale > 0 
-      ? prev.sconto_percentuale 
-      : null,
-    sconto_valore: scontoValore,
-    totale
-  }))
-}, [subtotale, scontoValore, totale])
-// Carica dati ordine in modifica
-useEffect(() => {
+  const scontoPercentuale = formData.sconto_percentuale || 0
+  const scontoValore = formData.sconto_percentuale !== null && formData.sconto_percentuale !== undefined
+    ? (subtotale * scontoPercentuale) / 100
+    : (formData.sconto_valore || 0)
+  // Calcola totale
+  const totale = subtotale - scontoValore
+
+  useEffect(() => {
+    setFormData(prev => ({
+      ...prev,
+      subtotale,
+      // Se sconto_percentuale è impostato, metti sconto_valore a NULL
+      // Altrimenti passa sconto_valore e metti sconto_percentuale a NULL
+      sconto_percentuale: prev.sconto_percentuale !== null && prev.sconto_percentuale !== undefined && prev.sconto_percentuale > 0
+        ? prev.sconto_percentuale
+        : null,
+      sconto_valore: scontoValore,
+      totale
+    }))
+  }, [subtotale, scontoValore, totale])
+
+  // Carica dati ordine in modifica
+  useEffect(() => {
     if (ordine) {
       setFormData({
         cliente_id: ordine.cliente_id,
@@ -94,10 +113,10 @@ useEffect(() => {
         ha_espositori: ordine.ha_espositori,
         ha_altri_prodotti: ordine.ha_altri_prodotti,
       })
-  
+
       // Carica righe nel carrello
       if (ordine.righe_ordine && ordine.righe_ordine.length > 0) {
-        const righeCarrello: RigaCarrello[] = ordine.righe_ordine.map(riga => ({
+        const righeCarrello: RigaCarrello[] = ordine.righe_ordine.map((riga: RigaOrdineCompleta) => ({
           prodotto_id: riga.prodotto_id,
           prodotto: riga.prodotti,
           quantita: riga.quantita,
@@ -106,16 +125,17 @@ useEffect(() => {
         }))
         setCarrello(righeCarrello)
       }
-  
+
       // Carica tipo vendita espositori
       if (ordine.tipo_vendita_espositori) {
         setTipoVenditaEspositori(ordine.tipo_vendita_espositori as 'diretto' | 'leasing')
       }
     }
   }, [ordine])
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target
-    
+
     if (name === 'sconto_percentuale') {
       const numValue = parseFloat(value) || 0
       setFormData(prev => ({ ...prev, [name]: numValue }))
@@ -144,7 +164,7 @@ useEffect(() => {
 
     // Controlla se prodotto già nel carrello
     const esistente = carrello.find(r => r.prodotto_id === prodottoSelezionato)
-    
+
     if (esistente) {
       // Aggiorna quantità
       setCarrello(prev =>
@@ -204,11 +224,11 @@ useEffect(() => {
 
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {}
-  
+
     if (!formData.cliente_id) {
       newErrors.cliente_id = ERROR_MESSAGES.REQUIRED_FIELD
     }
-  
+
     if (!formData.nome_evento?.trim()) {
       newErrors.nome_evento = ERROR_MESSAGES.REQUIRED_FIELD
     }
@@ -218,8 +238,8 @@ useEffect(() => {
     }
 
     if (formData.sconto_percentuale !== null && formData.sconto_percentuale !== undefined) {
-      if (formData.sconto_percentuale < LIMITS.MIN_SCONTO_PERCENTUALE || 
-          formData.sconto_percentuale > LIMITS.MAX_SCONTO_PERCENTUALE) {
+      if (formData.sconto_percentuale < LIMITS.MIN_SCONTO_PERCENTUALE ||
+        formData.sconto_percentuale > LIMITS.MAX_SCONTO_PERCENTUALE) {
         newErrors.sconto_percentuale = `Lo sconto deve essere tra ${LIMITS.MIN_SCONTO_PERCENTUALE}% e ${LIMITS.MAX_SCONTO_PERCENTUALE}%`
       }
     }
@@ -230,12 +250,12 @@ useEffect(() => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-  
+
     if (!validate()) return
-  
+
     setSaving(true)
     try {
-      const righe: RigaOrdineInsert[] = carrello.map((riga, index) => ({
+      const righe: RigaOrdineCreate[] = carrello.map((riga, index) => ({
         prodotto_id: riga.prodotto_id,
         quantita: riga.quantita,
         prezzo_unitario: riga.prezzo_unitario,
@@ -243,11 +263,11 @@ useEffect(() => {
         note_riga: riga.note_riga || null,
         ordine_riga: index + 1,
       }))
-  
+
       // Se c'è sconto_percentuale, azzera sconto_valore nel DB (sarà ricalcolato)
       // Se c'è solo sconto_valore, azzera sconto_percentuale
-      const hasScontoPercentuale = formData.sconto_percentuale !== null && formData.sconto_percentuale > 0
-      
+      const hasScontoPercentuale = formData.sconto_percentuale != null && formData.sconto_percentuale > 0
+
       const ordineCompleto: OrdineInsert = {
         ...formData,
         sconto_percentuale: hasScontoPercentuale ? formData.sconto_percentuale : null,
@@ -561,7 +581,7 @@ useEffect(() => {
             <label className="label">Note Ordine</label>
             <textarea
               name="note"
-              value={formData.note}
+              value={formData.note ?? ''}
               onChange={handleChange}
               className="input"
               rows={3}

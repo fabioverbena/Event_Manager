@@ -222,13 +222,14 @@ export default function Prodotti() {
 
       {showImport && (
         <ImportCSV
-  onImport={handleImportCSV}
-  onClose={() => setShowImport(false)}
-  columns={[
-    { key: 'codice_prodotto', label: 'Codice Prodotto' },
-    { key: 'codice_prodotto', label: 'Codice Prodotto' },
-    { key: 'nome', label: 'Nome Prodotto', required: true },
-    { key: 'categoria', label: 'Categoria', required: true },
+          title="Import Prodotti"
+          onImport={handleImportCSV}
+          onClose={() => setShowImport(false)}
+          columns={[
+            { key: 'codice_prodotto', label: 'Codice Prodotto' },
+            { key: 'codice_prodotto', label: 'Codice Prodotto' },
+            { key: 'nome', label: 'Nome Prodotto', required: true },
+            { key: 'categoria', label: 'Categoria', required: true },
             { key: 'prezzo_listino', label: 'Prezzo', required: true },
             { key: 'unita_misura', label: 'Unità Misura' },
             { key: 'descrizione', label: 'Descrizione' },

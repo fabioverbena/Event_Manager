@@ -204,7 +204,7 @@ export default function OrdiniTable({ ordini, onEdit, onDelete, onCambiaStato }:
                 <td className="px-6 py-4 text-right">
                   <div className="flex justify-end gap-2">
                     <button
-                      onClick={() => generateOrdinePDF(ordine)}
+                      onClick={() => generateOrdinePDF(ordine as any)}
                       className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
                       title="Stampa PDF"
                     >
