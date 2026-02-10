@@ -288,12 +288,12 @@ useEffect(() => {
     </label>
     <select
       name="cliente_id"
-      value={formData.cliente_id}
+      value={formData.cliente_id ?? ''}
       onChange={handleChange}
       className={`input ${errors.cliente_id ? 'border-red-500' : ''}`}
     >
                 <option value="">Seleziona cliente...</option>
-                {clienti.map(cliente => (
+                {(clienti ?? []).map(cliente => (
                   <option key={cliente.id} value={cliente.id}>
                     {cliente.ragione_sociale}
                   </option>
@@ -311,7 +311,7 @@ useEffect(() => {
     <input
       type="text"
       name="nome_evento"
-      value={formData.nome_evento}
+      value={formData.nome_evento ?? ''}
       onChange={handleChange}
       className={`input ${errors.nome_evento ? 'border-red-500' : ''}`}
       placeholder="es: IPM Essen 2026"
@@ -326,7 +326,7 @@ useEffect(() => {
     <input
       type="date"
       name="data_ordine"
-      value={formData.data_ordine}
+      value={formData.data_ordine ?? ''}
       onChange={handleChange}
       className="input"
     />
