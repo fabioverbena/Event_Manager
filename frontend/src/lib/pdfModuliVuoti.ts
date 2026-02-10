@@ -13,6 +13,17 @@ const loadImage = (src: string) =>
     img.src = src
   })
 
+const loadFirstAvailableImage = async (sources: string[]) => {
+  for (const src of sources) {
+    try {
+      return await loadImage(src)
+    } catch {
+      // ignore
+    }
+  }
+  throw new Error(`Failed to load image from sources: ${sources.join(', ')}`)
+}
+
 interface Prodotto {
   codice_prodotto: string
   nome: string
@@ -35,7 +46,12 @@ export const generateModuloVuoto = async (
 
   let logoImg: HTMLImageElement | null = null
   try {
-    logoImg = await loadImage(`${import.meta.env.BASE_URL}logo.png`)
+    const baseUrl = import.meta.env.BASE_URL || '/'
+    logoImg = await loadFirstAvailableImage([
+      `${baseUrl}logo.png`,
+      'logo.png',
+      '/logo.png',
+    ])
   } catch (e) {
     console.error(e)
   }
