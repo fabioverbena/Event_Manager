@@ -35,7 +35,7 @@ export const generateModuloVuoto = async (
 
   let logoImg: HTMLImageElement | null = null
   try {
-    logoImg = await loadImage(`${import.meta.env.BASE_URL}logo.png`)
+    logoImg = await loadImage('/logo.png')
   } catch (e) {
     console.error(e)
   }
