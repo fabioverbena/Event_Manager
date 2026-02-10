@@ -66,7 +66,7 @@ export default function ProdottoAutocomplete({ prodotti, onSelect, placeholder }
 
   const handleSelect = (prodotto: Prodotto) => {
     onSelect(prodotto)
-    setSearch('')
+    setSearch(`${prodotto.nome} (${prodotto.codice_prodotto})`)
     setIsOpen(false)
     setHighlightedIndex(0)
   }
