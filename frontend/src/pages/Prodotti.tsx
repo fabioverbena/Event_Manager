@@ -85,7 +85,15 @@ export default function Prodotti() {
   const handleImportCSV = async (data: any[]) => {
     const errors: string[] = []
     let successCount = 0
-  
+
+    const parseDecimal = (value: unknown) => {
+      const raw = String(value ?? '').trim()
+      if (!raw) return 0
+      const normalized = raw.replace(/\./g, '').replace(/,/g, '.')
+      const parsed = Number.parseFloat(normalized)
+      return Number.isFinite(parsed) ? parsed : 0
+    }
+
     for (let i = 0; i < data.length; i++) {
       const row = data[i]
       
@@ -99,7 +107,7 @@ export default function Prodotti() {
           errors.push(`Riga ${i + 1}: categoria "${row.categoria}" non trovata`)
           continue
         }
-  
+
         // USA CODICE ESISTENTE se presente, altrimenti genera
         let codice: string
         if (row.codice_prodotto?.trim()) {
@@ -107,18 +115,18 @@ export default function Prodotti() {
         } else {
           codice = await generateCodiceProdotto(row.nome)
         }
-  
+
         const prodottoData: ProdottoInsert = {
           categoria_id: categoria.id,
           codice_prodotto: codice,
           nome: row.nome,
           descrizione: row.descrizione || null,
-          prezzo_listino: parseFloat(row.prezzo_listino) || 0,
+          prezzo_listino: parseDecimal(row.prezzo_listino),
           unita_misura: row.unita_misura || 'pz',
           disponibile: row.disponibile?.toLowerCase() !== 'no',
           note: row.note || null,
         }
-  
+
         const result = await createProdotto(prodottoData)
         if (result.success) {
           successCount++

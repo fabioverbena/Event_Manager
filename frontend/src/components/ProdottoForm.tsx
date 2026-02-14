@@ -227,7 +227,7 @@ export default function ProdottoForm({ prodotto, categorie, onClose, onSave, onG
               <input
                 type="number"
                 name="prezzo_listino"
-                value={formData.prezzo_listino}
+                value={formData.prezzo_listino === 0 ? '' : formData.prezzo_listino}
                 onChange={handleChange}
                 step="0.01"
                 min={LIMITS.MIN_PREZZO}
