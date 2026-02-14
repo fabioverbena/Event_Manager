@@ -227,7 +227,6 @@ export default function Prodotti() {
           onClose={() => setShowImport(false)}
           columns={[
             { key: 'codice_prodotto', label: 'Codice Prodotto' },
-            { key: 'codice_prodotto', label: 'Codice Prodotto' },
             { key: 'nome', label: 'Nome Prodotto', required: true },
             { key: 'categoria', label: 'Categoria', required: true },
             { key: 'prezzo_listino', label: 'Prezzo', required: true },
@@ -239,8 +238,8 @@ export default function Prodotti() {
           templateExample={[
             'codice_prodotto,nome,categoria,prezzo_listino,unita_misura,descrizione,disponibile,note',
             'LEO2-001,Espositore Refrigerato Medio,Nuovi,1500.00,pz,Espositore per fiori recisi,si,',
-            'Ricambio Motore Standard,Ricambi,250.00,pz,Motore di ricambio universale,si,',
-            'Gemme Premium Box,Gemme,89.90,set,Set 12 gemme assortite,si,',
+            ',Ricambio Motore Standard,Ricambi,250.00,pz,Motore di ricambio universale,si,',
+            ',Gemme Premium Box,Gemme,89.90,set,Set 12 gemme assortite,si,',
           ]}
         />
       )}

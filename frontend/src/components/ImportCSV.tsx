@@ -22,6 +22,9 @@ export default function ImportCSV({ title, onImport, onClose, columns, templateE
   const [result, setResult] = useState<{ success: number; errors: string[] } | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  const requiredKeys = columns.filter(c => c.required).map(c => c.key)
+  const allKeys = columns.map(c => c.key)
+
   const handleFileSelect = (selectedFile: File) => {
     if (!selectedFile.name.endsWith('.csv')) {
       setErrors(['Il file deve essere in formato CSV'])
@@ -37,8 +40,9 @@ export default function ImportCSV({ title, onImport, onClose, columns, templateE
     const reader = new FileReader()
     
     reader.onload = (e) => {
-      const text = e.target?.result as string
-      const lines = text.split('\n').filter(line => line.trim())
+      const rawText = e.target?.result as string
+      const text = rawText.replace(/^\uFEFF/, '')
+      const lines = text.split(/\r?\n/).filter(line => line.trim())
       
       if (lines.length < 2) {
         setErrors(['Il file CSV è vuoto o non contiene dati'])
@@ -47,7 +51,9 @@ export default function ImportCSV({ title, onImport, onClose, columns, templateE
   
       // AUTO-RILEVA SEPARATORE (virgola o punto e virgola)
       const firstLine = lines[0]
-      const separator = firstLine.includes(';') ? ';' : ','
+      const semicolons = (firstLine.match(/;/g) || []).length
+      const commas = (firstLine.match(/,/g) || []).length
+      const separator = semicolons >= commas ? ';' : ','
   
       // Parse header
       const header = firstLine.split(separator).map(h => h.trim().replace(/['"]/g, ''))
@@ -151,6 +157,36 @@ export default function ImportCSV({ title, onImport, onClose, columns, templateE
                 <button onClick={downloadTemplate} className="btn-secondary text-sm">
                   Scarica Template
                 </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="text-gray-600 mt-0.5" size={20} />
+              <div className="flex-1">
+                <h3 className="font-semibold text-gray-900 mb-2">Formato file CSV</h3>
+                <div className="text-sm text-gray-700 space-y-2">
+                  <div>
+                    <div className="font-medium">Separatore</div>
+                    <div>Supportati: <span className="font-mono">;</span> e <span className="font-mono">,</span> (rilevato automaticamente dall'intestazione)</div>
+                  </div>
+                  <div>
+                    <div className="font-medium">Intestazioni (prima riga)</div>
+                    <div className="font-mono text-xs bg-white border border-gray-200 rounded px-2 py-1 inline-block">
+                      {templateExample?.[0] || allKeys.join(',')}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="font-medium">Colonne obbligatorie</div>
+                    <div className="font-mono text-xs bg-white border border-gray-200 rounded px-2 py-1 inline-block">
+                      {requiredKeys.length > 0 ? requiredKeys.join(', ') : '—'}
+                    </div>
+                  </div>
+                  <div className="text-xs text-gray-600">
+                    Le intestazioni devono corrispondere ai tag sopra. Ogni riga deve avere lo stesso numero di colonne dell'intestazione.
+                  </div>
+                </div>
               </div>
             </div>
           </div>
