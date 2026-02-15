@@ -47,6 +47,64 @@ const loadFirstAvailableImage = async (sources: string[]) => {
   throw new Error(`Failed to load image from sources: ${sources.join(', ')}`)
 }
 
+const GRENKE_MODELLO_TESTI: Record<string, string> = {
+  leo2: 'TESTO_CONDIZIONI_LEO2',
+  leo3: 'TESTO_CONDIZIONI_LEO3',
+  leo4: 'TESTO_CONDIZIONI_LEO4',
+  leo5: 'TESTO_CONDIZIONI_LEO5',
+  titano: 'TESTO_CONDIZIONI_TITANO',
+  default: 'TESTO_CONDIZIONI_GRENKE_DEFAULT',
+}
+
+const normalizeGrenkeProductName = (nome: string) => {
+  const lower = (nome || '').toLowerCase()
+  const withAlias = lower.replace(/leonardo/g, 'leo')
+
+  const romanReplaced = withAlias
+    .replace(/\biii\b/g, '3')
+    .replace(/\biv\b/g, '4')
+    .replace(/\bv\b/g, '5')
+    .replace(/\bii\b/g, '2')
+
+  return romanReplaced.replace(/[^a-z0-9]/g, '')
+}
+
+const getGrenkeModelKeyFromNomeProdotto = (nome: string) => {
+  const n = normalizeGrenkeProductName(nome)
+  if (n.includes('leo2')) return 'leo2'
+  if (n.includes('leo3')) return 'leo3'
+  if (n.includes('leo4')) return 'leo4'
+  if (n.includes('leo5')) return 'leo5'
+  if (n.includes('titano')) return 'titano'
+  return 'default'
+}
+
+const getGrenkeModelDisplayName = (ordine: Ordine) => {
+  const nome = (ordine.righe_ordine || [])
+    .map(r => r.prodotti?.nome)
+    .find(Boolean)
+  return nome || ''
+}
+
+const matchesGrenkeModel = (nome: string, modelKey: string) => {
+  const n = normalizeGrenkeProductName(nome)
+  if (!n) return false
+  switch (modelKey) {
+    case 'leo2':
+      return n.includes('leo2')
+    case 'leo3':
+      return n.includes('leo3')
+    case 'leo4':
+      return n.includes('leo4')
+    case 'leo5':
+      return n.includes('leo5')
+    case 'titano':
+      return n.includes('titano')
+    default:
+      return false
+  }
+}
+
 const renderDocumentoPage = async (doc: jsPDF, ordine: Ordine, tipoDocumento: TipoDocumento) => {
   const isPreventivo = tipoDocumento === 'preventivo'
   const labelDocumento = isPreventivo ? 'PREVENTIVO' : 'ORDINE'
@@ -176,44 +234,128 @@ const renderDocumentoPage = async (doc: jsPDF, ordine: Ordine, tipoDocumento: Ti
     doc.setTextColor(0, 0, 0)
     yPos += 10
   }
+
+  const isGrenkePreventivo = isPreventivo && ordine.ha_espositori && ordine.tipo_vendita_espositori === 'leasing'
+  if (isGrenkePreventivo) {
+    const rows = ordine.righe_ordine || []
+
+    const detected = rows
+      .map(r => ({
+        row: r,
+        key: getGrenkeModelKeyFromNomeProdotto(r.prodotti?.nome || ''),
+      }))
+      .find(x => x.key !== 'default')
+
+    const modelKey = detected?.key || getGrenkeModelKeyFromNomeProdotto(getGrenkeModelDisplayName(ordine))
+    const modelRow = detected?.row || rows.find(r => matchesGrenkeModel(r.prodotti?.nome || '', modelKey))
+    const modelDisplayName = modelRow?.prodotti?.nome || getGrenkeModelDisplayName(ordine)
+
+    const testoCondizioni = GRENKE_MODELLO_TESTI[modelKey] || GRENKE_MODELLO_TESTI.default
+
+    const codice = modelRow?.prodotti?.codice_prodotto || ''
+    const prezzoUnit = modelRow?.prezzo_unitario || 0
+    const qty = modelRow?.quantita || 1
+    const scontoPerc = ordine.sconto_percentuale || 0
+    const subtotaleScontato = prezzoUnit * qty * (1 - scontoPerc / 100)
+
+    autoTable(doc, {
+      startY: yPos,
+      head: [['Codice', 'Modello', 'Q.tà', 'Prezzo Unit.', 'Sconto %', 'Subtotale']],
+      body: [[
+        codice,
+        modelDisplayName || '',
+        qty.toString(),
+        formatCurrency(prezzoUnit),
+        `${scontoPerc}%`,
+        formatCurrency(subtotaleScontato),
+      ]],
+      theme: 'grid',
+      margin: { left: 20, right: 20 },
+      headStyles: {
+        fillColor: [34, 139, 34],
+        textColor: [255, 255, 255],
+        fontStyle: 'bold',
+        lineWidth: 0.1,
+        lineColor: [0, 0, 0],
+      },
+      styles: {
+        fontSize: 9,
+        lineWidth: 0.1,
+        lineColor: [0, 0, 0],
+      },
+      columnStyles: {
+        0: { cellWidth: 25 },
+        1: { cellWidth: 60 },
+        2: { cellWidth: 15, halign: 'center' },
+        3: { cellWidth: 25, halign: 'right' },
+        4: { cellWidth: 15, halign: 'right' },
+        5: { cellWidth: 30, halign: 'right' },
+      },
+    })
+
+    let postTableY = (doc as any).lastAutoTable.finalY + 6
+
+    const boxPadding = 3
+    const boxWidth = 170
+    const splitText = doc.splitTextToSize(testoCondizioni, boxWidth - boxPadding * 2)
+    const boxHeight = splitText.length * 4 + boxPadding * 2 + 4
+
+    doc.setFillColor(245, 245, 245)
+    doc.rect(20, postTableY, boxWidth, boxHeight, 'F')
+    doc.setDrawColor(200, 200, 200)
+    doc.rect(20, postTableY, boxWidth, boxHeight, 'S')
+
+    doc.setFontSize(10)
+    doc.setFont('helvetica', 'bold')
+    doc.text('Condizioni Leasing:', 20 + boxPadding, postTableY + boxPadding + 4)
+    doc.setFont('helvetica', 'normal')
+    doc.text(splitText, 20 + boxPadding, postTableY + boxPadding + 9)
+
+    yPos = postTableY + boxHeight + 6
+  }
   
   // Tabella Prodotti con griglia stile Excel
-  const tableData = (ordine.righe_ordine || []).map(riga => [
-    riga.prodotti?.codice_prodotto || '',
-    riga.prodotti?.nome || '',
-    riga.quantita.toString() + ' ' + (riga.prodotti?.unita_misura || 'pz'),
-    formatCurrency(riga.prezzo_unitario),
-    formatCurrency(riga.subtotale_riga),
-  ])
-  
-  autoTable(doc, {
-    startY: yPos,
-    head: [['Codice', 'Prodotto', 'Q.tà', 'Prezzo Unit.', 'Totale']],
-    body: tableData,
-    theme: 'grid', // ← GRIGLIA STILE EXCEL
-    headStyles: {
-      fillColor: [34, 139, 34],
-      textColor: [255, 255, 255],
-      fontStyle: 'bold',
-      lineWidth: 0.1,
-      lineColor: [0, 0, 0],
-    },
-    styles: {
-      fontSize: 9,
-      lineWidth: 0.1,
-      lineColor: [0, 0, 0],
-    },
-    columnStyles: {
-      0: { cellWidth: 30 },
-      1: { cellWidth: 70 },
-      2: { cellWidth: 25, halign: 'center' },
-      3: { cellWidth: 30, halign: 'right' },
-      4: { cellWidth: 30, halign: 'right' },
-    },
-  })
+  if (!isGrenkePreventivo) {
+    const tableData = (ordine.righe_ordine || []).map(riga => [
+      riga.prodotti?.codice_prodotto || '',
+      riga.prodotti?.nome || '',
+      riga.quantita.toString() + ' ' + (riga.prodotti?.unita_misura || 'pz'),
+      formatCurrency(riga.prezzo_unitario),
+      formatCurrency(riga.subtotale_riga),
+    ])
+    
+    autoTable(doc, {
+      startY: yPos,
+      head: [['Codice', 'Prodotto', 'Q.tà', 'Prezzo Unit.', 'Totale']],
+      body: tableData,
+      theme: 'grid', // ← GRIGLIA STILE EXCEL
+      margin: { left: 20, right: 20 },
+      headStyles: {
+        fillColor: [34, 139, 34],
+        textColor: [255, 255, 255],
+        fontStyle: 'bold',
+        lineWidth: 0.1,
+        lineColor: [0, 0, 0],
+      },
+      styles: {
+        fontSize: 9,
+        lineWidth: 0.1,
+        lineColor: [0, 0, 0],
+      },
+      columnStyles: {
+        0: { cellWidth: 30 },
+        1: { cellWidth: 70 },
+        2: { cellWidth: 25, halign: 'center' },
+        3: { cellWidth: 30, halign: 'right' },
+        4: { cellWidth: 30, halign: 'right' },
+      },
+    })
+
+    yPos = (doc as any).lastAutoTable.finalY + 10
+  }
   
   // Totali
-  const finalY = (doc as any).lastAutoTable.finalY + 10
+  const finalY = yPos
   
   doc.setFont('helvetica', 'normal')
   doc.text('Subtotale:', 130, finalY)

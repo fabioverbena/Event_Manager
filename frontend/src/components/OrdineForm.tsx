@@ -73,16 +73,29 @@ export default function OrdineForm({ ordine, clienti, prodotti, onClose, onSave 
     return prod?.categorie?.tipo_ordine === 'espositori'
   })
 
-  // Calcola subtotale
-  const subtotale = carrello.reduce((sum, riga) => sum + (riga.quantita * riga.prezzo_unitario), 0)
+  const subtotale = carrello.reduce((acc, riga) => acc + riga.quantita * riga.prezzo_unitario, 0)
 
   // Calcola sconto
   const scontoPercentuale = formData.sconto_percentuale || 0
   const scontoValore = formData.sconto_percentuale !== null && formData.sconto_percentuale !== undefined
     ? (subtotale * scontoPercentuale) / 100
     : (formData.sconto_valore || 0)
+
   // Calcola totale
   const totale = subtotale - scontoValore
+
+  // Default sconto 5% per leasing (Grenke) sugli espositori, senza sovrascrivere se già impostato
+  useEffect(() => {
+    if (!hasEspositori) return
+    if (tipoVenditaEspositori !== 'leasing') return
+
+    setFormData(prev => {
+      const current = prev.sconto_percentuale
+      const hasManual = current !== null && current !== undefined && current > 0
+      if (hasManual) return prev
+      return { ...prev, sconto_percentuale: 5 }
+    })
+  }, [hasEspositori, tipoVenditaEspositori])
 
   useEffect(() => {
     setFormData(prev => ({

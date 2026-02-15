@@ -3,6 +3,104 @@ import autoTable from 'jspdf-autotable'
 
 type TipoModulo = 'Espositori' | 'Ricambi' | 'Gemme' | 'Nido'
 
+type GrenkeModelKey = 'leo2' | 'leo3' | 'leo4' | 'leo5' | 'titano'
+
+interface ModuloEspositoriOptions {
+  grenkeLeasing: boolean
+  grenkeModel: GrenkeModelKey
+}
+
+interface Prodotto {
+  codice_prodotto: string
+  nome: string
+  prezzo_listino?: number
+  categorie?: {
+    nome: string
+    tipo_ordine: string
+  }
+}
+
+const GRENKE_MODELLO_TESTI: Record<GrenkeModelKey, string> = {
+  leo2: 'TESTO_CONDIZIONI_LEO2',
+  leo3: 'TESTO_CONDIZIONI_LEO3',
+  leo4: 'TESTO_CONDIZIONI_LEO4',
+  leo5: 'TESTO_CONDIZIONI_LEO5',
+  titano: 'TESTO_CONDIZIONI_TITANO',
+}
+
+const GRENKE_MODELLO_CODICI: Partial<Record<GrenkeModelKey, string>> = {
+  leo3: 'FDA-003',
+  leo4: 'FDA-004',
+}
+
+const normalizeProductCode = (codice: string) => (codice || '').toUpperCase().replace(/_/g, '-').trim()
+
+const normalizeGrenkeProductName = (nome: string) => {
+  const lower = (nome || '').toLowerCase()
+  const withAlias = lower.replace(/leonardo/g, 'leo')
+
+  const romanReplaced = withAlias
+    .replace(/\biii\b/g, '3')
+    .replace(/\biv\b/g, '4')
+    .replace(/\bv\b/g, '5')
+    .replace(/\bii\b/g, '2')
+
+  return romanReplaced.replace(/[^a-z0-9]/g, '')
+}
+
+const matchesGrenkeModel = (nome: string, modelKey: GrenkeModelKey) => {
+  const n = normalizeGrenkeProductName(nome)
+  switch (modelKey) {
+    case 'leo2':
+      return n.includes('leo2')
+    case 'leo3':
+      return n.includes('leo3')
+    case 'leo4':
+      return n.includes('leo4')
+    case 'leo5':
+      return n.includes('leo5')
+    case 'titano':
+      return n.includes('titano')
+  }
+}
+
+const pickBestGrenkeModelProduct = (
+  prodotti: { codice: string; nome: string; prezzo: number }[],
+  modelKey: GrenkeModelKey
+) => {
+  const codiceTarget = GRENKE_MODELLO_CODICI[modelKey]
+  if (codiceTarget) {
+    const targetNorm = normalizeProductCode(codiceTarget)
+    const byCode = (prodotti || []).find(p => normalizeProductCode(p.codice) === targetNorm)
+    if (byCode) return byCode
+  }
+
+  const candidates = (prodotti || []).filter(p => matchesGrenkeModel(p.nome || '', modelKey))
+  if (candidates.length === 0) return undefined
+  if (candidates.length === 1) return candidates[0]
+
+  const scored = candidates
+    .map(p => {
+      const normalized = normalizeGrenkeProductName(p.nome || '')
+      const idx = normalized.indexOf(modelKey)
+      const extraLen = idx >= 0 ? normalized.length - modelKey.length : normalized.length
+      return { p, idx, extraLen, normalizedLen: normalized.length }
+    })
+    .sort((a, b) => {
+      if (a.idx !== b.idx) return a.idx - b.idx
+      if (a.extraLen !== b.extraLen) return a.extraLen - b.extraLen
+      return a.normalizedLen - b.normalizedLen
+    })
+
+  console.warn('⚠️ Più prodotti matchano il modello Grenke, seleziono il migliore', {
+    modelKey,
+    candidates: scored.map(x => ({ codice: x.p.codice, nome: x.p.nome })),
+    selected: { codice: scored[0].p.codice, nome: scored[0].p.nome },
+  })
+
+  return scored[0].p
+}
+
 const MODULO_BOTTOM_MARGIN = 45
 
 const loadImage = (src: string) =>
@@ -24,21 +122,12 @@ const loadFirstAvailableImage = async (sources: string[]) => {
   throw new Error(`Failed to load image from sources: ${sources.join(', ')}`)
 }
 
-interface Prodotto {
-  codice_prodotto: string
-  nome: string
-  prezzo_listino?: number
-  categorie?: {
-    nome: string
-    tipo_ordine: string
-  }
-}
-
 export const generateModuloVuoto = async (
   tipo: TipoModulo, 
   numeroCopie: number = 1,
   prodottiDB?: Prodotto[],
-  eventoPrecompilato?: string
+  eventoPrecompilato?: string,
+  espositoriOptions?: ModuloEspositoriOptions
 ) => {
   console.log('🚀 generateModuloVuoto CHIAMATA!', { tipo, numeroCopie, prodottiDB: prodottiDB?.length })
   
@@ -186,16 +275,180 @@ export const generateModuloVuoto = async (
 
     yPos += 3
 
+    const isGrenke = tipo === 'Espositori' && espositoriOptions?.grenkeLeasing
+
     // Prepara righe tabella
     let righeTabella: string[][]
-    
+    let tableHead: string[][] = [['Codice', 'Descrizione Prodotto', 'Q.tà', 'Prezzo €', 'Totale €']]
+    let columnStyles: Record<number, any> = {
+      0: { cellWidth: 25 },
+      1: { cellWidth: 82 },
+      2: { cellWidth: 18, halign: 'center' },
+      3: { cellWidth: 22, halign: 'right' },
+      4: { cellWidth: 23, halign: 'right' },
+    }
+
+    if (isGrenke) {
+      const modelDisplayName = espositoriOptions!.grenkeModel.toUpperCase()
+      const testoCondizioni = GRENKE_MODELLO_TESTI[espositoriOptions!.grenkeModel]
+
+      const prodottoModel = pickBestGrenkeModelProduct((prodottiFiltrati || []), espositoriOptions!.grenkeModel)
+      if (!prodottoModel) {
+        console.warn('❗ Prodotto modello Grenke non trovato', {
+          model: espositoriOptions!.grenkeModel,
+          esempioNomi: (prodottiFiltrati || []).slice(0, 20).map(p => p.nome),
+        })
+      }
+      const codice = prodottoModel?.codice || ''
+      const prezzo = prodottoModel?.prezzo ?? 0
+      const scontoPerc = 5
+      const subtotale = prezzo * (1 - scontoPerc / 100)
+
+      tableHead = [['Codice', 'Modello', 'Q.tà', 'Prezzo €', 'Sconto %', 'Subtotale €']]
+      righeTabella = [[
+        codice,
+        modelDisplayName,
+        '1',
+        prezzo ? prezzo.toFixed(2).replace('.', ',') : '',
+        `${scontoPerc}%`,
+        prezzo ? subtotale.toFixed(2).replace('.', ',') : '',
+      ]]
+
+      columnStyles = {
+        0: { cellWidth: 25 },
+        1: { cellWidth: 77 },
+        2: { cellWidth: 15, halign: 'center' },
+        3: { cellWidth: 20, halign: 'right' },
+        4: { cellWidth: 15, halign: 'right' },
+        5: { cellWidth: 18, halign: 'right' },
+      }
+
+      autoTable(doc, {
+        startY: yPos,
+        head: tableHead,
+        body: righeTabella,
+        theme: 'grid',
+        margin: { left: 20, right: 20, bottom: MODULO_BOTTOM_MARGIN },
+        headStyles: {
+          fillColor: [34, 139, 34],
+          textColor: [255, 255, 255],
+          fontStyle: 'bold',
+          fontSize: 9,
+          lineWidth: 0.1,
+          lineColor: [0, 0, 0],
+        },
+        styles: {
+          fontSize: 8,
+          cellPadding: 2.5,
+          lineWidth: 0.1,
+          lineColor: [100, 100, 100],
+          minCellHeight: 5.5,
+        },
+        columnStyles,
+      })
+
+      let postTableY = (doc as any).lastAutoTable.finalY + 6
+
+      const boxPadding = 3
+      const boxWidth = 170
+      const splitText = doc.splitTextToSize(testoCondizioni, boxWidth - boxPadding * 2)
+      const boxHeight = splitText.length * 4 + boxPadding * 2 + 4
+
+      doc.setFillColor(245, 245, 245)
+      doc.rect(20, postTableY, boxWidth, boxHeight, 'F')
+      doc.setDrawColor(200, 200, 200)
+      doc.rect(20, postTableY, boxWidth, boxHeight, 'S')
+
+      doc.setFont('helvetica', 'bold')
+      doc.text('Condizioni Leasing:', 20 + boxPadding, postTableY + boxPadding + 4)
+      doc.setFont('helvetica', 'normal')
+      doc.text(splitText, 20 + boxPadding, postTableY + boxPadding + 9)
+
+      postTableY += boxHeight
+
+      // Totali
+      const finalY = postTableY + 5
+
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(9)
+      doc.setLineWidth(0.1)
+      doc.text('Subtotale:', 130, finalY)
+      doc.line(155, finalY, 190, finalY)
+
+      doc.text('Sconto (%):', 130, finalY + 6)
+      doc.line(155, finalY + 6, 165, finalY + 6)
+      doc.text('€:', 170, finalY + 6)
+      doc.line(175, finalY + 6, 190, finalY + 6)
+
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(10)
+      doc.text('TOTALE:', 130, finalY + 12)
+      doc.setLineWidth(0.3)
+      doc.line(155, finalY + 12, 190, finalY + 12)
+
+      // Condizioni Trasporto
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(9)
+      doc.text('CONDIZIONI TRASPORTO:', 20, finalY + 15)
+
+      doc.setFont('helvetica', 'normal')
+      doc.setLineWidth(0.1)
+      doc.rect(20, finalY + 17, 3, 3)
+      doc.text('Franco Destino', 25, finalY + 20)
+
+      doc.rect(70, finalY + 17, 3, 3)
+      doc.text('Porto Assegnato', 75, finalY + 20)
+
+      // Note
+      doc.setFont('helvetica', 'bold')
+      doc.text('Note:', 20, finalY + 26)
+      doc.setFont('helvetica', 'normal')
+      doc.line(20, finalY + 28, 190, finalY + 28)
+      doc.line(20, finalY + 33, 190, finalY + 33)
+
+      // Footer
+      const pageHeight = doc.internal.pageSize.height
+
+      const footerHeight = 18
+      const footerTop = pageHeight - footerHeight
+
+      doc.setFillColor(240, 240, 240)
+      doc.rect(0, footerTop, 210, footerHeight, 'F')
+
+      doc.setDrawColor(34, 139, 34)
+      doc.setLineWidth(0.5)
+      doc.line(0, footerTop, 210, footerTop)
+
+      doc.setFontSize(6)
+      doc.setTextColor(0, 0, 0)
+      doc.setFont('helvetica', 'bold')
+
+      let footerY = footerTop + 4
+      doc.text('Fior di Verbena di Zanotti Leonardo', 105, footerY, { align: 'center' })
+
+      footerY += 3
+      doc.setFont('helvetica', 'normal')
+      doc.text('Via Cà dei Lunghi, 54 - Borgo Maggiore 47894 - San Marino', 105, footerY, { align: 'center' })
+
+      footerY += 3
+      doc.text('Tel: 0549 907005 - Cell: 373 7170588', 105, footerY, { align: 'center' })
+
+      footerY += 3
+      doc.text('Email: info@fiordacqua.com - fiordacqua@gmail.com', 105, footerY, { align: 'center' })
+
+      footerY += 3
+      doc.text('IBAN: SM 63 L 08540 09800 000060191115', 105, footerY, { align: 'center' })
+
+      continue
+    }
+
     if (prodottiFiltrati.length > 0) {
       // Popola con prodotti esistenti
       righeTabella = prodottiFiltrati.map(p => [
-        p.codice, 
-        p.nome, 
-        '', 
-        p.prezzo.toFixed(2).replace('.', ','), 
+        p.codice,
+        p.nome,
+        '',
+        p.prezzo.toFixed(2).replace('.', ','),
         ''
       ])
       // Aggiungi righe vuote se meno di 18
@@ -209,10 +462,10 @@ export const generateModuloVuoto = async (
 
     autoTable(doc, {
       startY: yPos,
-      head: [['Codice', 'Descrizione Prodotto', 'Q.tà', 'Prezzo €', 'Totale €']],
+      head: tableHead,
       body: righeTabella,
       theme: 'grid',
-      margin: { bottom: MODULO_BOTTOM_MARGIN },
+      margin: { left: 20, right: 20, bottom: MODULO_BOTTOM_MARGIN },
       headStyles: {
         fillColor: [34, 139, 34],
         textColor: [255, 255, 255],
@@ -228,13 +481,7 @@ export const generateModuloVuoto = async (
         lineColor: [100, 100, 100],
         minCellHeight: 5.5,
       },
-      columnStyles: {
-        0: { cellWidth: 25 },
-        1: { cellWidth: 82 },
-        2: { cellWidth: 18, halign: 'center' },
-        3: { cellWidth: 22, halign: 'right' },
-        4: { cellWidth: 23, halign: 'right' },
-      },
+      columnStyles,
     })
 
     // Totali
