@@ -33,6 +33,61 @@ const GRENKE_MODELLO_CODICI: Partial<Record<GrenkeModelKey, string>> = {
   leo4: 'FDA-004',
 }
 
+const GRENKE_MODELLO_TABELLE: Partial<Record<GrenkeModelKey, {
+  rows: {
+    rate: string
+    costoGiornaliero: string
+    rataMensile: string
+  }[]
+  note: string
+}>> = {
+  leo2: {
+    rows: [
+      { rate: '24', costoGiornaliero: 'Costo giornaliero € 8,60', rataMensile: '€ 267,28' },
+      { rate: '36', costoGiornaliero: 'Costo giornaliero € 6,00', rataMensile: '€ 186,04' },
+      { rate: '48', costoGiornaliero: 'Costo giornaliero € 4,60', rataMensile: '€ 144,70' },
+      { rate: '60', costoGiornaliero: 'Costo giornaliero € 3,90', rataMensile: '€ 120,98' },
+    ],
+    note: '*La prima rata si paga 6 mesi dopo la consegna, bene strumentale totalmente deducibile. Prezzo comprensivo di trasporto e montaggio\nIn caso di vendita diretta, il trasporto a carico del cliente e pagamento per bonifico bancario anticipato',
+  },
+  leo3: {
+    rows: [
+      { rate: '24', costoGiornaliero: 'Costo giornaliero € 12,86', rataMensile: '€ 398,91' },
+      { rate: '36', costoGiornaliero: 'Costo giornaliero € 8,90', rataMensile: '€ 277,66' },
+      { rate: '48', costoGiornaliero: 'Costo giornaliero € 6,90', rataMensile: '€ 215,97' },
+      { rate: '60', costoGiornaliero: 'Costo giornaliero € 5,80', rataMensile: '€ 180,56' },
+    ],
+    note: '*La prima rata si paga 6 mesi dopo la consegna, bene strumentale totalmente deducibile. Prezzo comprensivo di trasporto e montaggio\nIn caso di vendita diretta, il trasporto a carico del cliente e pagamento per bonifico bancario anticipato',
+  },
+  leo4: {
+    rows: [
+      { rate: '24', costoGiornaliero: 'Costo giornaliero € 14,60', rataMensile: '€ 455,17' },
+      { rate: '36', costoGiornaliero: 'Costo giornaliero € 10,22', rataMensile: '€ 316,83' },
+      { rate: '48', costoGiornaliero: 'Costo giornaliero € 7,90', rataMensile: '€ 246,43' },
+      { rate: '60', costoGiornaliero: 'Costo giornaliero € 6,60', rataMensile: '€ 206,02' },
+    ],
+    note: '*La prima rata si paga 6 mesi dopo la consegna, bene strumentale totalmente deducibile. Prezzo comprensivo di trasporto e montaggio\nIn caso di vendita diretta, il trasporto a carico del cliente e pagamento per bonifico bancario anticipato',
+  },
+  leo5: {
+    rows: [
+      { rate: '24', costoGiornaliero: 'Costo giornaliero € 16,60', rataMensile: '€ 517,42' },
+      { rate: '36', costoGiornaliero: 'Costo giornaliero € 11,60', rataMensile: '€ 360,16' },
+      { rate: '48', costoGiornaliero: 'Costo giornaliero € 9,00', rataMensile: '€ 280,13' },
+      { rate: '60', costoGiornaliero: 'Costo giornaliero € 7,50', rataMensile: '€ 234,20' },
+    ],
+    note: '*La prima rata si paga 6 mesi dopo la consegna, bene strumentale totalmente deducibile. Prezzo comprensivo di trasporto e montaggio\nIn caso di vendita diretta, il trasporto a carico del cliente e pagamento per bonifico bancario anticipato',
+  },
+  titano: {
+    rows: [
+      { rate: '24', costoGiornaliero: 'Costo giornaliero € 14,80', rataMensile: '€ 460,80' },
+      { rate: '36', costoGiornaliero: 'Costo giornaliero € 10,30', rataMensile: '€ 320,74' },
+      { rate: '48', costoGiornaliero: 'Costo giornaliero € 8,04', rataMensile: '€ 249,48' },
+      { rate: '60', costoGiornaliero: 'Costo giornaliero € 6,70', rataMensile: '€ 208,57' },
+    ],
+    note: '*La prima rata si paga 6 mesi dopo la consegna, bene strumentale totalmente deducibile. Prezzo comprensivo di trasporto e montaggio\nIn caso di vendita diretta, il trasporto a carico del cliente e pagamento per bonifico bancario anticipato',
+  },
+}
+
 const normalizeProductCode = (codice: string) => (codice || '').toUpperCase().replace(/_/g, '-').trim()
 
 const normalizeGrenkeProductName = (nome: string) => {
@@ -120,6 +175,46 @@ const loadFirstAvailableImage = async (sources: string[]) => {
     }
   }
   throw new Error(`Failed to load image from sources: ${sources.join(', ')}`)
+}
+
+const renderGrenkeLeasingCondizioni = (doc: jsPDF, modelKey: GrenkeModelKey, startY: number) => {
+  const table = GRENKE_MODELLO_TABELLE[modelKey]
+  if (!table) return { finalY: startY, rendered: false }
+
+  autoTable(doc, {
+    startY,
+    head: [['N° rate', 'NOLEGGIO CON RISCATTO *', 'Rata mensile']],
+    body: table.rows.map(r => [r.rate, r.costoGiornaliero, r.rataMensile]),
+    theme: 'grid',
+    margin: { left: 20, right: 20, bottom: MODULO_BOTTOM_MARGIN },
+    headStyles: {
+      fillColor: [255, 255, 255],
+      textColor: [0, 0, 0],
+      fontStyle: 'bold',
+      lineWidth: 0.1,
+      lineColor: [0, 0, 0],
+    },
+    styles: {
+      fontSize: 9,
+      cellPadding: 2.5,
+      lineWidth: 0.1,
+      lineColor: [0, 0, 0],
+      minCellHeight: 6,
+    },
+    columnStyles: {
+      0: { cellWidth: 18, halign: 'center' },
+      1: { cellWidth: 110 },
+      2: { cellWidth: 42, halign: 'right' },
+    },
+  })
+
+  const afterTableY = (doc as any).lastAutoTable.finalY + 4
+  doc.setFontSize(9)
+  doc.setFont('helvetica', 'normal')
+  const splitNote = doc.splitTextToSize(table.note, 170)
+  doc.text(splitNote, 20, afterTableY)
+
+  return { finalY: afterTableY + splitNote.length * 4, rendered: true }
 }
 
 export const generateModuloVuoto = async (
@@ -301,7 +396,7 @@ export const generateModuloVuoto = async (
       }
       const codice = prodottoModel?.codice || ''
       const prezzo = prodottoModel?.prezzo ?? 0
-      const scontoPerc = 5
+      const scontoPerc = espositoriOptions!.grenkeModel === 'leo2' ? 5 : 10
       const subtotale = prezzo * (1 - scontoPerc / 100)
 
       tableHead = [['Codice', 'Modello', 'Q.tà', 'Prezzo €', 'Sconto %', 'Subtotale €']]
@@ -349,22 +444,27 @@ export const generateModuloVuoto = async (
 
       let postTableY = (doc as any).lastAutoTable.finalY + 6
 
-      const boxPadding = 3
-      const boxWidth = 170
-      const splitText = doc.splitTextToSize(testoCondizioni, boxWidth - boxPadding * 2)
-      const boxHeight = splitText.length * 4 + boxPadding * 2 + 4
+      const rendered = renderGrenkeLeasingCondizioni(doc, espositoriOptions!.grenkeModel, postTableY)
+      if (rendered.rendered) {
+        postTableY = rendered.finalY
+      } else {
+        const boxPadding = 3
+        const boxWidth = 170
+        const splitText = doc.splitTextToSize(testoCondizioni, boxWidth - boxPadding * 2)
+        const boxHeight = splitText.length * 4 + boxPadding * 2 + 4
 
-      doc.setFillColor(245, 245, 245)
-      doc.rect(20, postTableY, boxWidth, boxHeight, 'F')
-      doc.setDrawColor(200, 200, 200)
-      doc.rect(20, postTableY, boxWidth, boxHeight, 'S')
+        doc.setFillColor(245, 245, 245)
+        doc.rect(20, postTableY, boxWidth, boxHeight, 'F')
+        doc.setDrawColor(200, 200, 200)
+        doc.rect(20, postTableY, boxWidth, boxHeight, 'S')
 
-      doc.setFont('helvetica', 'bold')
-      doc.text('Condizioni Leasing:', 20 + boxPadding, postTableY + boxPadding + 4)
-      doc.setFont('helvetica', 'normal')
-      doc.text(splitText, 20 + boxPadding, postTableY + boxPadding + 9)
+        doc.setFont('helvetica', 'bold')
+        doc.text('Condizioni Leasing:', 20 + boxPadding, postTableY + boxPadding + 4)
+        doc.setFont('helvetica', 'normal')
+        doc.text(splitText, 20 + boxPadding, postTableY + boxPadding + 9)
 
-      postTableY += boxHeight
+        postTableY += boxHeight
+      }
 
       // Totali
       const finalY = postTableY + 5
