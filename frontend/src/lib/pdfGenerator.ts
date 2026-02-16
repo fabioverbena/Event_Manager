@@ -537,17 +537,12 @@ const renderDocumentoPage = async (doc: jsPDF, ordine: Ordine, tipoDocumento: Ti
     footerY,
     { align: 'center' }
   )
-
-  doc.setFontSize(6)
-  doc.setTextColor(160, 160, 160)
-  doc.text('BUILD: cascade-debug', 20, pageHeight - 2)
 }
 
 const getDocumentoFileName = (ordine: Ordine, tipoDocumento: TipoDocumento, numeroCopie: number) => {
   const prefix = tipoDocumento === 'preventivo' ? 'Preventivo' : 'Ordine'
   const copieSuffix = numeroCopie > 1 ? `_copie${numeroCopie}` : ''
-  const buildTag = 'cascade-debug'
-  return `${prefix}_${ordine.numero_ordine.toString().padStart(4, '0')}_${ordine.clienti?.ragione_sociale || 'Cliente'}${copieSuffix}_build-${buildTag}.pdf`
+  return `${prefix}_${ordine.numero_ordine.toString().padStart(4, '0')}_${ordine.clienti?.ragione_sociale || 'Cliente'}${copieSuffix}.pdf`
 }
 
 export const generateOrdinePDF = async (ordine: Ordine, numeroCopie: number = 1) => {
