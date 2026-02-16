@@ -208,6 +208,9 @@ const renderDocumentoPage = async (doc: jsPDF, ordine: Ordine, tipoDocumento: Ti
   const isPreventivo = tipoDocumento === 'preventivo'
   const labelDocumento = isPreventivo ? 'PREVENTIVO' : 'ORDINE'
 
+  const tipoVenditaEspositoriNorm = (ordine.tipo_vendita_espositori || '').toString().toLowerCase()
+  const isLeasingGrenke = tipoVenditaEspositoriNorm.includes('leasing')
+
   let logoImg: HTMLImageElement | null = null
   try {
     const baseUrl = import.meta.env.BASE_URL || '/'
@@ -325,7 +328,7 @@ const renderDocumentoPage = async (doc: jsPDF, ordine: Ordine, tipoDocumento: Ti
     doc.setTextColor(255, 255, 255)
     doc.setFont('helvetica', 'bold')
     doc.text(
-      `ESPOSITORI - ${ordine.tipo_vendita_espositori === 'diretto' ? 'VENDITA DIRETTA' : 'LEASING GRENKE'}`,
+      `ESPOSITORI - ${isLeasingGrenke ? 'LEASING GRENKE' : 'VENDITA DIRETTA'}`,
       105,
       yPos,
       { align: 'center' }
@@ -334,7 +337,7 @@ const renderDocumentoPage = async (doc: jsPDF, ordine: Ordine, tipoDocumento: Ti
     yPos += 10
   }
 
-  const isGrenkePreventivo = isPreventivo && ordine.ha_espositori && ordine.tipo_vendita_espositori === 'leasing'
+  const isGrenkePreventivo = isPreventivo && isLeasingGrenke
   if (isGrenkePreventivo) {
     const rows = ordine.righe_ordine || []
 
@@ -367,6 +370,7 @@ const renderDocumentoPage = async (doc: jsPDF, ordine: Ordine, tipoDocumento: Ti
         formatCurrency(subtotaleScontato),
       ]],
       theme: 'grid',
+      tableWidth: 170,
       margin: { left: 20, right: 20 },
       headStyles: {
         fillColor: [34, 139, 34],
@@ -431,6 +435,7 @@ const renderDocumentoPage = async (doc: jsPDF, ordine: Ordine, tipoDocumento: Ti
       head: [['Codice', 'Prodotto', 'Q.tà', 'Prezzo Unit.', 'Totale']],
       body: tableData,
       theme: 'grid', // ← GRIGLIA STILE EXCEL
+      tableWidth: 170,
       margin: { left: 20, right: 20 },
       headStyles: {
         fillColor: [34, 139, 34],
