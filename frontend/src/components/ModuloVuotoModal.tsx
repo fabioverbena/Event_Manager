@@ -10,9 +10,21 @@ interface ModuloVuotoModalProps {
 
 type TipoModulo = 'Espositori' | 'Ricambi' | 'Gemme' | 'Nido'
 
+type GrenkeModelKey = 'leo2' | 'leo3' | 'leo4' | 'leo5' | 'titano'
+
+const GRENKE_MODELLO_TESTI: Record<GrenkeModelKey, string> = {
+  leo2: 'TESTO_CONDIZIONI_LEO2',
+  leo3: 'TESTO_CONDIZIONI_LEO3',
+  leo4: 'TESTO_CONDIZIONI_LEO4',
+  leo5: 'TESTO_CONDIZIONI_LEO5',
+  titano: 'TESTO_CONDIZIONI_TITANO',
+}
+
 export default function ModuloVuotoModal({ onClose, eventoCorrente }: ModuloVuotoModalProps) {
   const [tipoSelezionato, setTipoSelezionato] = useState<TipoModulo>('Espositori')
   const [numeroCopie, setNumeroCopie] = useState<number>(1)
+  const [grenkeLeasing, setGrenkeLeasing] = useState(false)
+  const [grenkeModel, setGrenkeModel] = useState<GrenkeModelKey>('leo2')
   const [prodotti, setProdotti] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -24,7 +36,8 @@ export default function ModuloVuotoModal({ onClose, eventoCorrente }: ModuloVuot
     try {
       const { data, error } = await supabase
         .from('prodotti')
-        .select('codice_prodotto, nome, prezzo_listino, categorie(nome, tipo_ordine)')        .eq('disponibile', true)
+        .select('codice_prodotto, nome, prezzo_listino, categorie(nome, tipo_ordine)')
+        .eq('disponibile', true)
         .order('nome')
 
       if (error) throw error
@@ -38,7 +51,15 @@ export default function ModuloVuotoModal({ onClose, eventoCorrente }: ModuloVuot
 
   const handleStampa = async () => {
     try {
-      await generateModuloVuoto(tipoSelezionato, numeroCopie, prodotti, eventoCorrente)
+      await generateModuloVuoto(
+        tipoSelezionato,
+        numeroCopie,
+        prodotti,
+        eventoCorrente,
+        tipoSelezionato === 'Espositori'
+          ? { grenkeLeasing, grenkeModel }
+          : undefined
+      )
       onClose()
     } catch (error) {
       console.error('Errore generazione modulo PDF:', error)
@@ -86,6 +107,50 @@ export default function ModuloVuotoModal({ onClose, eventoCorrente }: ModuloVuot
               ))}
             </div>
           </div>
+
+          {tipoSelezionato === 'Espositori' && (
+            <div className="card bg-gray-50">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <div className="text-sm text-gray-600">Contratto</div>
+                  <div className="font-semibold text-gray-900">Leasing (Grenke)</div>
+                </div>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={grenkeLeasing}
+                    onChange={(e) => setGrenkeLeasing(e.target.checked)}
+                    className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
+                  />
+                  <span className="text-sm font-medium text-gray-900">Attivo</span>
+                </label>
+              </div>
+
+              {grenkeLeasing && (
+                <div className="mt-4 space-y-3">
+                  <div>
+                    <label className="label">Modello</label>
+                    <select
+                      value={grenkeModel}
+                      onChange={(e) => setGrenkeModel(e.target.value as GrenkeModelKey)}
+                      className="input"
+                    >
+                      <option value="leo2">Leo2</option>
+                      <option value="leo3">Leo3</option>
+                      <option value="leo4">Leo4</option>
+                      <option value="leo5">Leo5</option>
+                      <option value="titano">Titano</option>
+                    </select>
+                  </div>
+
+                  <div className="bg-white border border-gray-200 rounded-lg p-3">
+                    <div className="text-xs font-semibold text-gray-600 mb-1">Anteprima condizioni leasing</div>
+                    <div className="text-sm text-gray-900 whitespace-pre-wrap">{GRENKE_MODELLO_TESTI[grenkeModel]}</div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Numero Copie */}
           <div>
