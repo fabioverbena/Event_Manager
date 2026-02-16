@@ -527,7 +527,7 @@ const renderDocumentoPage = async (doc: jsPDF, ordine: Ordine, tipoDocumento: Ti
 
   footerY += 4
   doc.text('IBAN: SM 63 L 08540 09800 000060191115', 105, footerY, { align: 'center' })
-  
+
   footerY += 5
   doc.setFontSize(7)
   doc.setTextColor(100, 100, 100)
@@ -542,7 +542,8 @@ const renderDocumentoPage = async (doc: jsPDF, ordine: Ordine, tipoDocumento: Ti
 const getDocumentoFileName = (ordine: Ordine, tipoDocumento: TipoDocumento, numeroCopie: number) => {
   const prefix = tipoDocumento === 'preventivo' ? 'Preventivo' : 'Ordine'
   const copieSuffix = numeroCopie > 1 ? `_copie${numeroCopie}` : ''
-  return `${prefix}_${ordine.numero_ordine.toString().padStart(4, '0')}_${ordine.clienti?.ragione_sociale || 'Cliente'}${copieSuffix}.pdf`
+  const buildTag = 'cascade-debug'
+  return `${prefix}_${ordine.numero_ordine.toString().padStart(4, '0')}_${ordine.clienti?.ragione_sociale || 'Cliente'}${copieSuffix}_build-${buildTag}.pdf`
 }
 
 export const generateOrdinePDF = async (ordine: Ordine, numeroCopie: number = 1) => {
