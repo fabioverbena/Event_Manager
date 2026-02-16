@@ -537,6 +537,10 @@ const renderDocumentoPage = async (doc: jsPDF, ordine: Ordine, tipoDocumento: Ti
     footerY,
     { align: 'center' }
   )
+
+  doc.setFontSize(6)
+  doc.setTextColor(160, 160, 160)
+  doc.text('BUILD: cascade-debug', 20, pageHeight - 2)
 }
 
 const getDocumentoFileName = (ordine: Ordine, tipoDocumento: TipoDocumento, numeroCopie: number) => {
