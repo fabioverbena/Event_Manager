@@ -435,7 +435,7 @@ const renderDocumentoPage = async (doc: jsPDF, ordine: Ordine, tipoDocumento: Ti
       head: [['Codice', 'Prodotto', 'Q.tà', 'Prezzo Unit.', 'Totale']],
       body: tableData,
       theme: 'grid', // ← GRIGLIA STILE EXCEL
-      tableWidth: 170,
+      tableWidth: 165,
       margin: { left: 20, right: 20 },
       headStyles: {
         fillColor: [34, 139, 34],
@@ -446,15 +446,17 @@ const renderDocumentoPage = async (doc: jsPDF, ordine: Ordine, tipoDocumento: Ti
       },
       styles: {
         fontSize: 9,
+        cellPadding: 1,
+        overflow: 'linebreak',
         lineWidth: 0.1,
         lineColor: [0, 0, 0],
       },
       columnStyles: {
-        0: { cellWidth: 20 },
+        0: { cellWidth: 17 },
         1: { cellWidth: 75 },
-        2: { cellWidth: 20, halign: 'center' },
-        3: { cellWidth: 25, halign: 'right' },
-        4: { cellWidth: 30, halign: 'right' },
+        2: { cellWidth: 17, halign: 'center' },
+        3: { cellWidth: 28, halign: 'right' },
+        4: { cellWidth: 28, halign: 'right' },
       },
     })
 
