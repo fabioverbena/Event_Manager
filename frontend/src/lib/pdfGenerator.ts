@@ -451,10 +451,10 @@ const renderDocumentoPage = async (doc: jsPDF, ordine: Ordine, tipoDocumento: Ti
       },
       columnStyles: {
         0: { cellWidth: 30 },
-        1: { cellWidth: 70 },
+        1: { cellWidth: 65 },
         2: { cellWidth: 25, halign: 'center' },
-        3: { cellWidth: 30, halign: 'right' },
-        4: { cellWidth: 30, halign: 'right' },
+        3: { cellWidth: 25, halign: 'right' },
+        4: { cellWidth: 25, halign: 'right' },
       },
     })
 
