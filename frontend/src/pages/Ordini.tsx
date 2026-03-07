@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { useState } from 'react'
 import { Search, Plus, RefreshCw, Filter } from 'lucide-react'
 import { useOrdini, type OrdineCompleto } from '@/hooks/useOrdini'

@@ -1,7 +1,11 @@
-import { Outlet, NavLink } from 'react-router-dom'
+import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { LayoutDashboard, Users, Package, ShoppingCart } from 'lucide-react'
+import { signOut } from 'firebase/auth'
+import { firebaseAuth } from '@/lib/firebase'
 
 export default function Layout() {
+  const navigate = useNavigate()
+
   const baseUrl = import.meta.env.BASE_URL || '/'
   const normalizedBaseUrl = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`
 
@@ -24,6 +28,17 @@ export default function Layout() {
                 <p className="text-xs text-gray-500">Fior d'Acqua</p>
               </div>
             </div>
+
+            <button
+              type="button"
+              onClick={async () => {
+                await signOut(firebaseAuth)
+                navigate('/login', { replace: true })
+              }}
+              className="text-sm font-medium text-gray-700 hover:text-gray-900 border border-gray-300 rounded-lg px-3 py-2"
+            >
+              Logout
+            </button>
           </div>
         </div>
       </header>
