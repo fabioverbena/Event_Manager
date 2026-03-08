@@ -73,12 +73,35 @@ export default async function handler(req: any, res: any) {
 
     const secure = port === 465
 
+    console.log('[send-email] smtp config', {
+      host,
+      port,
+      secure,
+      user,
+      from,
+      passLen: String(pass).length,
+    })
+
     const transporter = nodemailer.createTransport({
       host,
       port,
       secure,
       auth: { user, pass },
     })
+
+    try {
+      await transporter.verify()
+      console.log('[send-email] smtp verify OK')
+    } catch (verifyErr: any) {
+      console.error('[send-email] smtp verify FAILED', {
+        message: verifyErr?.message,
+        code: verifyErr?.code,
+        response: verifyErr?.response,
+        responseCode: verifyErr?.responseCode,
+        command: verifyErr?.command,
+      })
+      throw verifyErr
+    }
 
     const attachmentBuffer = Buffer.from(String(attachmentBase64), 'base64')
 
@@ -98,6 +121,14 @@ export default async function handler(req: any, res: any) {
 
     res.status(200).json({ ok: true })
   } catch (e: any) {
-    res.status(500).json({ ok: false, error: e?.message || 'Unknown error' })
+    res.status(500).json({
+      ok: false,
+      error: e?.message || 'Unknown error',
+      details: {
+        code: e?.code,
+        responseCode: e?.responseCode,
+        command: e?.command,
+      },
+    })
   }
 }
