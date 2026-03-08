@@ -4,6 +4,7 @@ import { Search, Plus, RefreshCw, Filter } from 'lucide-react'
 import { useOrdini, type OrdineCompleto } from '@/hooks/useOrdini'
 import OrdineForm from '@/components/OrdineForm'
 import OrdiniTable from '@/components/OrdiniTable'
+import InviaEmailModal from '@/components/InviaEmailModal'
 import { SUCCESS_MESSAGES } from '@/lib/constants'
 import type { Database } from '@/types/database.types'
 
@@ -29,6 +30,7 @@ export default function Ordini() {
 
   const [showForm, setShowForm] = useState(false)
   const [editingOrdine, setEditingOrdine] = useState<OrdineCompleto | null>(null)
+  const [ordineEmail, setOrdineEmail] = useState<OrdineCompleto | null>(null)
 
   const [searchQuery, setSearchQuery] = useState('')
   const [filtroStato, setFiltroStato] = useState<string>('tutti')
@@ -45,6 +47,13 @@ export default function Ordini() {
     if (result.success && result.data) {
       setEditingOrdine(result.data)
       setShowForm(true)
+    }
+  }
+
+  const handleOpenEmail = async (ordine: Ordine) => {
+    const result = await fetchOrdineCompleto(ordine.id)
+    if (result.success && result.data) {
+      setOrdineEmail(result.data)
     }
   }
 
@@ -243,6 +252,7 @@ export default function Ordini() {
           onEdit={handleOpenEdit}
           onDelete={handleDelete}
           onCambiaStato={handleCambiaStato}
+          onInviaEmail={handleOpenEmail}
         />
       )}
 
@@ -253,6 +263,13 @@ export default function Ordini() {
           prodotti={prodotti}
           onClose={handleCloseForm}
           onSave={handleSave}
+        />
+      )}
+
+      {ordineEmail && (
+        <InviaEmailModal
+          ordine={ordineEmail as any}
+          onClose={() => setOrdineEmail(null)}
         />
       )}
     </div>

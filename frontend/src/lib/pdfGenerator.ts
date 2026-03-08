@@ -566,3 +566,11 @@ export const generatePreventivoPDF = async (ordine: Ordine, numeroCopie: number 
 
   doc.save(getDocumentoFileName(ordine, 'preventivo', numeroCopie))
 }
+
+export const generatePreventivoPDFBlob = async (ordine: Ordine) => {
+  const doc = new jsPDF()
+  await renderDocumentoPage(doc, ordine, 'preventivo')
+  const filename = getDocumentoFileName(ordine, 'preventivo', 1)
+  const blob = doc.output('blob')
+  return { blob, filename }
+}

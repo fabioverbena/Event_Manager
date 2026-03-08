@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { useState } from 'react'
-import { Pencil, Trash2, FileText, CheckCircle, XCircle, Clock, Printer, Eye } from 'lucide-react'
+import { Pencil, Trash2, FileText, CheckCircle, XCircle, Clock, Printer, Eye, Mail } from 'lucide-react'
 import { formatCurrency, formatDate, getStatoBadgeColor } from '@/lib/utils'
 import StampaOrdineModal from '@/components/StampaOrdineModal'
 import type { Database } from '@/types/database.types'
@@ -23,9 +23,10 @@ interface OrdiniTableProps {
   onEdit: (ordine: Ordine) => void
   onDelete: (id: string) => void
   onCambiaStato: (id: string, stato: 'bozza' | 'confermato' | 'evaso' | 'annullato') => void
+  onInviaEmail: (ordine: Ordine) => void
 }
 
-export default function OrdiniTable({ ordini, onEdit, onDelete, onCambiaStato }: OrdiniTableProps) {
+export default function OrdiniTable({ ordini, onEdit, onDelete, onCambiaStato, onInviaEmail }: OrdiniTableProps) {
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
   const [menuStatoAperto, setMenuStatoAperto] = useState<string | null>(null)
   const [ordineStampa, setOrdineStampa] = useState<Ordine | null>(null)
@@ -196,6 +197,13 @@ export default function OrdiniTable({ ordini, onEdit, onDelete, onCambiaStato }:
 
                 <td className="px-6 py-4 text-right">
                   <div className="flex justify-end gap-2">
+                    <button
+                      onClick={() => onInviaEmail(ordine)}
+                      className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                      title="Invia email preventivo"
+                    >
+                      <Mail size={18} />
+                    </button>
                     <button
                       onClick={() => setOrdineStampa(ordine)}
                       className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
