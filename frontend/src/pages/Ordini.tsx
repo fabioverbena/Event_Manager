@@ -1,5 +1,6 @@
 // @ts-nocheck
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Search, Plus, RefreshCw, Filter } from 'lucide-react'
 import { useOrdini, type OrdineCompleto } from '@/hooks/useOrdini'
 import OrdineForm from '@/components/OrdineForm'
@@ -14,6 +15,8 @@ type RigaOrdineInsert = Database['public']['Tables']['righe_ordine']['Insert']
 type RigaOrdineCreate = Omit<RigaOrdineInsert, 'ordine_id'>
 
 export default function Ordini() {
+  const [searchParams] = useSearchParams()
+
   const { 
     ordini, 
     clienti,
@@ -30,6 +33,7 @@ export default function Ordini() {
 
   const [showForm, setShowForm] = useState(false)
   const [editingOrdine, setEditingOrdine] = useState<OrdineCompleto | null>(null)
+  const [initialClienteId, setInitialClienteId] = useState<string>('')
   const [ordineEmail, setOrdineEmail] = useState<OrdineCompleto | null>(null)
 
   const [searchQuery, setSearchQuery] = useState('')
@@ -37,8 +41,18 @@ export default function Ordini() {
   const [filtroEvento, setFiltroEvento] = useState<string>('tutti')
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
 
+  useEffect(() => {
+    const shouldOpen = searchParams.get('new_ordine') === '1'
+    const clienteId = searchParams.get('cliente_id') || ''
+    if (!shouldOpen || !clienteId) return
+    setEditingOrdine(null)
+    setInitialClienteId(clienteId)
+    setShowForm(true)
+  }, [searchParams])
+
   const handleOpenNew = () => {
     setEditingOrdine(null)
+    setInitialClienteId('')
     setShowForm(true)
   }
 
@@ -60,6 +74,7 @@ export default function Ordini() {
   const handleCloseForm = () => {
     setShowForm(false)
     setEditingOrdine(null)
+    setInitialClienteId('')
   }
 
   const handleSave = async (data: OrdineInsert, righe: RigaOrdineCreate[]) => {
@@ -261,6 +276,7 @@ export default function Ordini() {
           ordine={editingOrdine}
           clienti={clienti}
           prodotti={prodotti}
+          initialClienteId={initialClienteId}
           onClose={handleCloseForm}
           onSave={handleSave}
         />

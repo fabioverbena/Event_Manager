@@ -12,13 +12,23 @@ interface ProdottoAutocompleteProps {
   prodotti: Prodotto[]
   onSelect: (prodotto: Prodotto) => void
   placeholder?: string
+  value?: string
+  onClear?: () => void
 }
 
-export default function ProdottoAutocomplete({ prodotti, onSelect, placeholder }: ProdottoAutocompleteProps) {
+export default function ProdottoAutocomplete({ prodotti, onSelect, placeholder, value, onClear }: ProdottoAutocompleteProps) {
   const [search, setSearch] = useState('')
   const [isOpen, setIsOpen] = useState(false)
+  const [hasFocus, setHasFocus] = useState(false)
   const [highlightedIndex, setHighlightedIndex] = useState(0)
   const wrapperRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!hasFocus && typeof value === 'string' && value !== search) {
+      setSearch(value)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value, hasFocus])
 
   // Filtra prodotti mentre digiti
   const filteredProdotti = search.trim()
@@ -66,7 +76,7 @@ export default function ProdottoAutocomplete({ prodotti, onSelect, placeholder }
 
   const handleSelect = (prodotto: Prodotto) => {
     onSelect(prodotto)
-    setSearch(`${prodotto.nome} (${prodotto.codice_prodotto})`)
+    setSearch(`${prodotto.codice_prodotto}`)
     setIsOpen(false)
     setHighlightedIndex(0)
   }
@@ -74,6 +84,7 @@ export default function ProdottoAutocomplete({ prodotti, onSelect, placeholder }
   const handleClear = () => {
     setSearch('')
     setIsOpen(false)
+    onClear?.()
   }
 
   return (
@@ -89,11 +100,16 @@ export default function ProdottoAutocomplete({ prodotti, onSelect, placeholder }
             setIsOpen(true)
             setHighlightedIndex(0)
           }}
-          onFocus={() => setIsOpen(true)}
+          onFocus={() => {
+            setHasFocus(true)
+            setIsOpen(true)
+          }}
+          onBlur={() => setHasFocus(false)}
           onKeyDown={handleKeyDown}
           placeholder={placeholder || 'Cerca prodotto per nome o codice...'}
           className="input pl-10 pr-10"
         />
+
         {search && (
           <button
             onClick={handleClear}
@@ -106,8 +122,8 @@ export default function ProdottoAutocomplete({ prodotti, onSelect, placeholder }
 
       {/* Dropdown risultati */}
       {isOpen && filteredProdotti.length > 0 && (
-        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-64 overflow-y-auto">
-          {filteredProdotti.slice(0, 50).map((prodotto, index) => (
+        <div className="absolute z-[100] w-full min-w-[28rem] mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-80 overflow-y-auto">
+          {filteredProdotti.slice(0, 200).map((prodotto, index) => (
             <button
               key={prodotto.id}
               type="button"
@@ -129,9 +145,9 @@ export default function ProdottoAutocomplete({ prodotti, onSelect, placeholder }
               </div>
             </button>
           ))}
-          {filteredProdotti.length > 50 && (
+          {filteredProdotti.length > 200 && (
             <div className="px-4 py-2 text-sm text-gray-500 text-center bg-gray-50">
-              Mostrati primi 50 di {filteredProdotti.length} risultati. Affina la ricerca...
+              Mostrati primi 200 di {filteredProdotti.length} risultati. Affina la ricerca...
             </div>
           )}
         </div>

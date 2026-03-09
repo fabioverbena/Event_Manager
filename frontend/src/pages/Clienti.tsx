@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Search, Plus, RefreshCw, Upload } from 'lucide-react'
 import ImportCSV from '@/components/ImportCSV'
 import { useClienti } from '@/hooks/useClienti'
@@ -11,6 +12,9 @@ type Cliente = Database['public']['Tables']['clienti']['Row']
 type ClienteInsert = Database['public']['Tables']['clienti']['Insert']
 
 export default function Clienti() {
+  const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+
   const { 
     clienti, 
     loading, 
@@ -63,6 +67,16 @@ export default function Clienti() {
   const [searchQuery, setSearchQuery] = useState('')
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [showImport, setShowImport] = useState(false)
+  const [initialRagioneSociale, setInitialRagioneSociale] = useState<string>('')
+
+  useEffect(() => {
+    const shouldOpenNew = searchParams.get('new') === '1'
+    const rs = searchParams.get('ragione_sociale') || ''
+    if (!shouldOpenNew) return
+    setEditingCliente(null)
+    setInitialRagioneSociale(rs)
+    setShowForm(true)
+  }, [searchParams])
 
   const handleOpenNew = () => {
     setEditingCliente(null)
@@ -89,6 +103,10 @@ export default function Clienti() {
       const result = await createCliente(data)
       if (result.success) {
         showSuccess(SUCCESS_MESSAGES.CLIENTE_CREATED)
+        const returnTo = searchParams.get('return_to')
+        if (returnTo === 'ordini' && result.data?.id) {
+          navigate(`/ordini?new_ordine=1&cliente_id=${encodeURIComponent(result.data.id)}`)
+        }
       }
     }
   }
@@ -192,9 +210,10 @@ export default function Clienti() {
         />
       )}
 
-{showForm && (
+      {showForm && (
         <ClienteForm
           cliente={editingCliente}
+          initialRagioneSociale={!editingCliente ? initialRagioneSociale : ''}
           onClose={handleCloseForm}
           onSave={handleSave}
         />
