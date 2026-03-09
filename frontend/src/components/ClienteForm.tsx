@@ -9,11 +9,12 @@ type ClienteInsert = Database['public']['Tables']['clienti']['Insert']
 
 interface ClienteFormProps {
   cliente?: Cliente | null
+  initialRagioneSociale?: string
   onClose: () => void
   onSave: (data: ClienteInsert) => Promise<void>
 }
 
-export default function ClienteForm({ cliente, onClose, onSave }: ClienteFormProps) {
+export default function ClienteForm({ cliente, initialRagioneSociale, onClose, onSave }: ClienteFormProps) {
   const [formData, setFormData] = useState<ClienteInsert>({
     ragione_sociale: '',
     nome_referente: '',
@@ -48,8 +49,12 @@ export default function ClienteForm({ cliente, onClose, onSave }: ClienteFormPro
         provincia: cliente.provincia || '',
         note: cliente.note || '',
       })
+      return
     }
-  }, [cliente])
+    if (initialRagioneSociale) {
+      setFormData(prev => ({ ...prev, ragione_sociale: initialRagioneSociale }))
+    }
+  }, [cliente, initialRagioneSociale])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target

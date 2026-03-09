@@ -1,14 +1,14 @@
-import ProdottoAutocomplete from './ProdottoAutocomplete'
-import ClienteAutocomplete from './ClienteAutocomplete'
+import ClienteSearchModal from './ClienteSearchModal'
+import ProdottoSearchModal from './ProdottoSearchModal'
 import { getEventoCorrente } from '@/lib/eventoCorrente'
-import { useState, useEffect } from 'react'
-import { X, Plus, Trash2, ShoppingCart } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { X, Trash2, ShoppingCart } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import { ERROR_MESSAGES, LIMITS } from '@/lib/constants'
+import type { OrdineCompleto } from '@/hooks/useOrdini'
+import { useNavigate } from 'react-router-dom'
 import type { Database } from '@/types/database.types'
-type Ordine = Database['public']['Tables']['ordini']['Row']
 type OrdineInsert = Database['public']['Tables']['ordini']['Insert']
-type RigaOrdine = Database['public']['Tables']['righe_ordine']['Row']
 type RigaOrdineInsert = Database['public']['Tables']['righe_ordine']['Insert']
 type RigaOrdineCreate = Omit<RigaOrdineInsert, 'ordine_id'>
 type Cliente = Database['public']['Tables']['clienti']['Row']
@@ -21,19 +21,15 @@ type ProdottoConCategoria = Prodotto & {
   } | null
 }
 
-type OrdineCompleto = Ordine & {
-  righe_ordine?: Array<RigaOrdine & {
-    prodotti?: Prodotto
-  }>
-}
-
 type RigaOrdineCompleta = NonNullable<OrdineCompleto['righe_ordine']>[number]
 
 interface RigaCarrello {
   prodotto_id: string
   prodotto?: Prodotto
+  codice_input?: string
   quantita: number
   prezzo_unitario: number
+  sconto: number
   note_riga: string
 }
 
@@ -41,11 +37,27 @@ interface OrdineFormProps {
   ordine?: OrdineCompleto | null
   clienti: Cliente[]
   prodotti: ProdottoConCategoria[]
+  initialClienteId?: string
   onClose: () => void
   onSave: (ordine: OrdineInsert, righe: RigaOrdineCreate[]) => Promise<void>
 }
 
-export default function OrdineForm({ ordine, clienti, prodotti, onClose, onSave }: OrdineFormProps) {
+export default function OrdineForm({ ordine, clienti, prodotti, initialClienteId, onClose, onSave }: OrdineFormProps) {
+  const navigate = useNavigate()
+
+  const [prodottoSearchOpen, setProdottoSearchOpen] = useState(false)
+  const [prodottoSearchQuery, setProdottoSearchQuery] = useState('')
+  const [prodottoSearchRowIndex, setProdottoSearchRowIndex] = useState<number | null>(null)
+  const rowRefs = useRef<Array<HTMLTableRowElement | null>>([])
+  const codiceRefs = useRef<Array<HTMLInputElement | null>>([])
+  const prezzoRefs = useRef<Array<HTMLInputElement | null>>([])
+
+  const [clienteSearchOpen, setClienteSearchOpen] = useState(false)
+  const [clienteSearchQuery, setClienteSearchQuery] = useState('')
+  const [clienteSearchMode, setClienteSearchMode] = useState<'list' | 'confirm' | 'create'>('list')
+  const [clienteMatches, setClienteMatches] = useState<Cliente[]>([])
+  const [clienteInput, setClienteInput] = useState('')
+
   const [formData, setFormData] = useState<OrdineInsert>({
     cliente_id: '',
     nome_evento: getEventoCorrente() || '',
@@ -62,8 +74,6 @@ export default function OrdineForm({ ordine, clienti, prodotti, onClose, onSave 
 
   const [tipoVenditaEspositori, setTipoVenditaEspositori] = useState<'diretto' | 'leasing'>('diretto')
   const [carrello, setCarrello] = useState<RigaCarrello[]>([])
-  const [prodottoSelezionato, setProdottoSelezionato] = useState('')
-  const [quantita, setQuantita] = useState(1)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [saving, setSaving] = useState(false)
 
@@ -73,43 +83,52 @@ export default function OrdineForm({ ordine, clienti, prodotti, onClose, onSave 
     return prod?.categorie?.tipo_ordine === 'espositori'
   })
 
-  const subtotale = carrello.reduce((acc, riga) => acc + riga.quantita * riga.prezzo_unitario, 0)
+  const computeRiga = (riga: RigaCarrello) => {
+    const gross = (riga.quantita || 0) * (riga.prezzo_unitario || 0)
+    const s = Number(riga.sconto || 0)
+    const scontoImporto = s > 0
+      ? (gross * s) / 100
+      : s < 0
+        ? Math.min(gross, Math.abs(s))
+        : 0
+    const net = gross - scontoImporto
 
-  // Calcola sconto
-  const scontoPercentuale = formData.sconto_percentuale || 0
-  const scontoValore = formData.sconto_percentuale !== null && formData.sconto_percentuale !== undefined
-    ? (subtotale * scontoPercentuale) / 100
-    : (formData.sconto_valore || 0)
+    return {
+      gross,
+      scontoImporto,
+      net,
+    }
+  }
 
-  // Calcola totale
-  const totale = subtotale - scontoValore
+  const subtotale = carrello.reduce((acc, riga) => acc + computeRiga(riga).net, 0)
+  const totale = subtotale
 
   // Default sconto 5% per leasing (Grenke) sugli espositori, senza sovrascrivere se già impostato
   useEffect(() => {
     if (!hasEspositori) return
     if (tipoVenditaEspositori !== 'leasing') return
 
-    setFormData(prev => {
-      const current = prev.sconto_percentuale
-      const hasManual = current !== null && current !== undefined && current > 0
-      if (hasManual) return prev
-      return { ...prev, sconto_percentuale: 5 }
-    })
+    setCarrello(prev =>
+      prev.map(r => {
+        const prod = prodotti.find(p => p.id === r.prodotto_id)
+        const isExpo = prod?.categorie?.tipo_ordine === 'espositori'
+        if (!isExpo) return r
+        const hasManual = r.sconto != null && Number(r.sconto) !== 0
+        if (hasManual) return r
+        return { ...r, sconto: 5 }
+      })
+    )
   }, [hasEspositori, tipoVenditaEspositori])
 
   useEffect(() => {
     setFormData(prev => ({
       ...prev,
       subtotale,
-      // Se sconto_percentuale è impostato, metti sconto_valore a NULL
-      // Altrimenti passa sconto_valore e metti sconto_percentuale a NULL
-      sconto_percentuale: prev.sconto_percentuale !== null && prev.sconto_percentuale !== undefined && prev.sconto_percentuale > 0
-        ? prev.sconto_percentuale
-        : null,
-      sconto_valore: scontoValore,
+      sconto_percentuale: null,
+      sconto_valore: 0,
       totale
     }))
-  }, [subtotale, scontoValore, totale])
+  }, [subtotale, totale])
 
   // Carica dati ordine in modifica
   useEffect(() => {
@@ -133,107 +152,145 @@ export default function OrdineForm({ ordine, clienti, prodotti, onClose, onSave 
         const righeCarrello: RigaCarrello[] = ordine.righe_ordine.map((riga: RigaOrdineCompleta) => ({
           prodotto_id: riga.prodotto_id,
           prodotto: riga.prodotti,
+          codice_input: '',
           quantita: riga.quantita,
           prezzo_unitario: riga.prezzo_unitario,
+          sconto: 0,
           note_riga: riga.note_riga || '',
         }))
-        setCarrello(righeCarrello)
+        const maxRows = 5
+        const padded: RigaCarrello[] = [...righeCarrello]
+        while (padded.length < maxRows) {
+          padded.push({ prodotto_id: '', prodotto: undefined, codice_input: '', quantita: 1, prezzo_unitario: 0, sconto: 0, note_riga: '' })
+        }
+        setCarrello(padded.slice(0, maxRows))
       }
 
       // Carica tipo vendita espositori
       if (ordine.tipo_vendita_espositori) {
         setTipoVenditaEspositori(ordine.tipo_vendita_espositori as 'diretto' | 'leasing')
       }
+
+      const selected = (clienti || []).find(c => c.id === ordine.cliente_id)
+      setClienteInput(selected?.ragione_sociale || '')
     }
+  }, [ordine, clienti])
+
+  useEffect(() => {
+    if (!formData.cliente_id) return
+    const selected = (clienti || []).find(c => c.id === formData.cliente_id)
+    if (selected && selected.ragione_sociale !== clienteInput) {
+      setClienteInput(selected.ragione_sociale)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.cliente_id, clienti])
+
+  useEffect(() => {
+    if (ordine) return
+    if (!initialClienteId) return
+    if (formData.cliente_id) return
+    const selected = (clienti || []).find(c => c.id === initialClienteId)
+    if (!selected) return
+    setFormData(prev => ({ ...prev, cliente_id: selected.id }))
+    setClienteInput(selected.ragione_sociale || '')
+    focusCodiceRow(0)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ordine, initialClienteId, clienti])
+
+  useEffect(() => {
+    if (ordine) return
+    setCarrello(prev => {
+      if (prev.length > 0) return prev
+      const maxRows = 5
+      const base: RigaCarrello[] = []
+      while (base.length < maxRows) {
+        base.push({ prodotto_id: '', prodotto: undefined, codice_input: '', quantita: 1, prezzo_unitario: 0, sconto: 0, note_riga: '' })
+      }
+      return base
+    })
   }, [ordine])
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target
+  const ensureCarrelloRows = (righe?: RigaCarrello[]) => {
+    const maxRows = 5
+    const base = righe ? [...righe] : [...carrello]
+    while (base.length < maxRows) {
+      base.push({ prodotto_id: '', prodotto: undefined, codice_input: '', quantita: 1, prezzo_unitario: 0, sconto: 0, note_riga: '' })
+    }
+    return base.slice(0, maxRows)
+  }
 
-    if (name === 'sconto_percentuale') {
-      const numValue = parseFloat(value) || 0
-      setFormData(prev => ({ ...prev, [name]: numValue }))
+  const openClienteSearchForQuery = (query: string) => {
+    const q = query.trim().toLowerCase()
+    const list = (clienti || []).filter(c => (c.ragione_sociale || '').toLowerCase().includes(q))
+
+    setClienteSearchQuery(query)
+    setClienteMatches(list)
+
+    if (list.length === 0) {
+      setClienteSearchMode('create')
+    } else if (list.length === 1) {
+      setClienteSearchMode('confirm')
     } else {
-      setFormData(prev => ({ ...prev, [name]: value }))
+      setClienteSearchMode('list')
     }
 
-    if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: '' }))
-    }
+    setClienteSearchOpen(true)
   }
 
-  const handleAggiungiProdotto = () => {
-    if (!prodottoSelezionato) {
-      setErrors(prev => ({ ...prev, prodotto: 'Seleziona un prodotto' }))
-      return
-    }
-
-    if (quantita <= 0 || quantita > LIMITS.MAX_QUANTITA) {
-      setErrors(prev => ({ ...prev, quantita: 'Quantità non valida' }))
-      return
-    }
-
-    const prodotto = prodotti.find(p => p.id === prodottoSelezionato)
-    if (!prodotto) return
-
-    // Controlla se prodotto già nel carrello
-    const esistente = carrello.find(r => r.prodotto_id === prodottoSelezionato)
-
-    if (esistente) {
-      // Aggiorna quantità
-      setCarrello(prev =>
-        prev.map(r =>
-          r.prodotto_id === prodottoSelezionato
-            ? { ...r, quantita: r.quantita + quantita }
-            : r
-        )
-      )
-    } else {
-      // Aggiungi nuova riga
-      setCarrello(prev => [
-        ...prev,
-        {
-          prodotto_id: prodottoSelezionato,
-          prodotto,
-          quantita,
-          prezzo_unitario: prodotto.prezzo_listino,
-          note_riga: '',
-        },
-      ])
-    }
-
-    // Reset selezione
-    setProdottoSelezionato('')
-    setQuantita(1)
-    setErrors(prev => ({ ...prev, prodotto: '', quantita: '' }))
+  const closeClienteSearch = () => {
+    setClienteSearchOpen(false)
+    setClienteSearchQuery('')
+    setClienteMatches([])
+    setClienteSearchMode('list')
   }
 
-  const handleRimuoviProdotto = (prodotto_id: string) => {
-    setCarrello(prev => prev.filter(r => r.prodotto_id !== prodotto_id))
+  const handleUpdateRiga = (index: number, patch: Partial<RigaCarrello>) => {
+    setCarrello(prev => {
+      const next = ensureCarrelloRows(prev)
+      const current = next[index]
+      next[index] = { ...current, ...patch }
+      return next
+    })
   }
 
-  const handleUpdateQuantita = (prodotto_id: string, nuovaQuantita: number) => {
-    if (nuovaQuantita <= 0) {
-      handleRimuoviProdotto(prodotto_id)
-    } else {
-      setCarrello(prev =>
-        prev.map(r =>
-          r.prodotto_id === prodotto_id
-            ? { ...r, quantita: nuovaQuantita }
-            : r
-        )
-      )
+  const handleClearRiga = (index: number) => {
+    handleUpdateRiga(index, { prodotto_id: '', prodotto: undefined, codice_input: '', quantita: 1, prezzo_unitario: 0, sconto: 0, note_riga: '' })
+  }
+
+  const openProdottoSearch = (rowIndex: number, initialQuery: string) => {
+    setProdottoSearchRowIndex(rowIndex)
+    setProdottoSearchQuery(initialQuery)
+    setProdottoSearchOpen(true)
+  }
+
+  const closeProdottoSearch = () => {
+    setProdottoSearchOpen(false)
+    setProdottoSearchRowIndex(null)
+    setProdottoSearchQuery('')
+  }
+
+  const focusPrezzoRow = (rowIndex: number) => {
+    const rowEl = rowRefs.current[rowIndex]
+    if (rowEl) {
+      rowEl.scrollIntoView({ block: 'center', behavior: 'smooth' })
     }
+    window.setTimeout(() => {
+      const input = prezzoRefs.current[rowIndex]
+      input?.focus()
+      input?.select()
+    }, 0)
   }
 
-  const handleUpdatePrezzo = (prodotto_id: string, nuovoPrezzo: number) => {
-    setCarrello(prev =>
-      prev.map(r =>
-        r.prodotto_id === prodotto_id
-          ? { ...r, prezzo_unitario: nuovoPrezzo }
-          : r
-      )
-    )
+  const focusCodiceRow = (rowIndex: number) => {
+    const rowEl = rowRefs.current[rowIndex]
+    if (rowEl) {
+      rowEl.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    }
+    window.setTimeout(() => {
+      const input = codiceRefs.current[rowIndex]
+      input?.focus()
+      input?.select()
+    }, 0)
   }
 
   const validate = (): boolean => {
@@ -247,16 +304,21 @@ export default function OrdineForm({ ordine, clienti, prodotti, onClose, onSave 
       newErrors.nome_evento = ERROR_MESSAGES.REQUIRED_FIELD
     }
 
-    if (carrello.length === 0) {
+    const righeValide = carrello.filter(r => r.prodotto_id)
+    if (righeValide.length === 0) {
       newErrors.carrello = 'Aggiungi almeno un prodotto'
     }
 
-    if (formData.sconto_percentuale !== null && formData.sconto_percentuale !== undefined) {
-      if (formData.sconto_percentuale < LIMITS.MIN_SCONTO_PERCENTUALE ||
-        formData.sconto_percentuale > LIMITS.MAX_SCONTO_PERCENTUALE) {
-        newErrors.sconto_percentuale = `Lo sconto deve essere tra ${LIMITS.MIN_SCONTO_PERCENTUALE}% e ${LIMITS.MAX_SCONTO_PERCENTUALE}%`
+    carrello.forEach((riga, idx) => {
+      if (!riga.prodotto_id) return
+      if ((riga.quantita || 0) <= 0 || (riga.quantita || 0) > LIMITS.MAX_QUANTITA) {
+        newErrors[`quantita_${idx}`] = 'Quantità non valida'
       }
-    }
+      const s = Number(riga.sconto || 0)
+      if (s > LIMITS.MAX_SCONTO_PERCENTUALE) {
+        newErrors[`sconto_${idx}`] = `Sconto % max ${LIMITS.MAX_SCONTO_PERCENTUALE}`
+      }
+    })
 
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
@@ -269,30 +331,29 @@ export default function OrdineForm({ ordine, clienti, prodotti, onClose, onSave 
 
     setSaving(true)
     try {
-      const righe: RigaOrdineCreate[] = carrello.map((riga, index) => ({
+      const righeValide = carrello.filter(r => r.prodotto_id)
+
+      const righe: RigaOrdineCreate[] = righeValide.map((riga, index) => ({
         prodotto_id: riga.prodotto_id,
         quantita: riga.quantita,
         prezzo_unitario: riga.prezzo_unitario,
-        subtotale_riga: riga.quantita * riga.prezzo_unitario,
+        subtotale_riga: computeRiga(riga).net,
         note_riga: riga.note_riga || null,
         ordine_riga: index + 1,
       }))
 
-      // Se c'è sconto_percentuale, azzera sconto_valore nel DB (sarà ricalcolato)
-      // Se c'è solo sconto_valore, azzera sconto_percentuale
-      const hasScontoPercentuale = formData.sconto_percentuale != null && formData.sconto_percentuale > 0
-
       const ordineCompleto: OrdineInsert = {
         ...formData,
-        sconto_percentuale: hasScontoPercentuale ? formData.sconto_percentuale : null,
-        sconto_valore: formData.sconto_valore || 0,
+        sconto_percentuale: null,
+        sconto_valore: 0,
         tipo_vendita_espositori: hasEspositori ? tipoVenditaEspositori : null,
       }
-  
+
       await onSave(ordineCompleto, righe)
       onClose()
     } catch (error) {
       console.error('Errore salvataggio:', error)
+
     } finally {
       setSaving(false)
     }
@@ -300,7 +361,46 @@ export default function OrdineForm({ ordine, clienti, prodotti, onClose, onSave 
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-5xl w-full max-h-[90vh] overflow-y-auto">
+      <ClienteSearchModal
+        open={clienteSearchOpen}
+        query={clienteSearchQuery}
+        mode={clienteSearchMode}
+        matches={clienteMatches}
+        onClose={closeClienteSearch}
+        onSelect={(cliente) => {
+          setFormData(prev => ({ ...prev, cliente_id: cliente.id }))
+          setClienteInput(cliente.ragione_sociale)
+          if (errors.cliente_id) {
+            setErrors(prev => ({ ...prev, cliente_id: '' }))
+          }
+          closeClienteSearch()
+        }}
+        onCreateNew={(ragioneSociale) => {
+          closeClienteSearch()
+          navigate(`/clienti?new=1&ragione_sociale=${encodeURIComponent(ragioneSociale)}&return_to=ordini`)
+        }}
+      />
+
+      <ProdottoSearchModal
+        open={prodottoSearchOpen}
+        query={prodottoSearchQuery}
+        setQuery={setProdottoSearchQuery}
+        prodotti={prodotti}
+        onClose={closeProdottoSearch}
+        onSelect={(p) => {
+          if (prodottoSearchRowIndex == null) return
+          const idx = prodottoSearchRowIndex
+          handleUpdateRiga(prodottoSearchRowIndex, {
+            prodotto_id: p.id,
+            prodotto: p as unknown as Prodotto,
+            codice_input: '',
+            prezzo_unitario: p.prezzo_listino,
+          })
+          closeProdottoSearch()
+          focusPrezzoRow(idx)
+        }}
+      />
+      <div className="bg-white rounded-lg shadow-xl max-w-7xl w-full max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
           <h2 className="text-2xl font-bold text-gray-900">
             {ordine ? 'Modifica Ordine' : 'Nuovo Ordine'}
@@ -315,60 +415,91 @@ export default function OrdineForm({ ordine, clienti, prodotti, onClose, onSave 
 
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           {/* Cliente, Evento e Data */}
-<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-  <div>
-    <label className="label">
-      Cliente <span className="text-red-500">*</span>
-    </label>
-    <div className={errors.cliente_id ? 'rounded-md ring-1 ring-red-500' : ''}>
-      <ClienteAutocomplete
-        clienti={clienti ?? []}
-        selectedClienteId={formData.cliente_id ?? ''}
-        onSelect={(cliente) => {
-          setFormData(prev => ({ ...prev, cliente_id: cliente.id }))
-          if (errors.cliente_id) {
-            setErrors(prev => ({ ...prev, cliente_id: '' }))
-          }
-        }}
-        onClear={() => {
-          setFormData(prev => ({ ...prev, cliente_id: '' }))
-        }}
-        placeholder="Cerca cliente per ragione sociale..."
-      />
-    </div>
-    {errors.cliente_id && (
-      <p className="text-red-500 text-sm mt-1">{errors.cliente_id}</p>
-    )}
-  </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="label">
+                Cliente <span className="text-red-500">*</span>
+              </label>
+              <div className={errors.cliente_id ? 'rounded-md ring-1 ring-red-500' : ''}>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={clienteInput}
+                    onChange={(e) => {
+                      const next = e.target.value
+                      setClienteInput(next)
+                      if (formData.cliente_id) {
+                        setFormData(prev => ({ ...prev, cliente_id: '' }))
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key !== 'Enter') return
+                      e.preventDefault()
+                      const q = clienteInput.trim()
+                      if (!q) return
+                      openClienteSearchForQuery(q)
+                    }}
+                    className="input"
+                    autoComplete="off"
+                  />
+
+                  {!!clienteInput && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setClienteInput('')
+                        setFormData(prev => ({ ...prev, cliente_id: '' }))
+                      }}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      title="Pulisci"
+                    >
+                      <X size={18} />
+                    </button>
+                  )}
+                </div>
+              </div>
+              {errors.cliente_id && (
+                <p className="text-red-500 text-sm mt-1">{errors.cliente_id}</p>
+              )}
+            </div>
 
             <div>
-    <label className="label">
-      Nome Evento <span className="text-red-500">*</span>
-    </label>
-    <input
-      type="text"
-      name="nome_evento"
-      value={formData.nome_evento ?? ''}
-      onChange={handleChange}
-      className={`input ${errors.nome_evento ? 'border-red-500' : ''}`}
-      placeholder="es: IPM Essen 2026"
-    />
-    {errors.nome_evento && (
-      <p className="text-red-500 text-sm mt-1">{errors.nome_evento}</p>
-    )}
-  </div>
+              <label className="label">
+                Nome Evento <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                name="nome_evento"
+                value={formData.nome_evento ?? ''}
+                onChange={(e) => {
+                  const { name, value } = e.target
+                  setFormData(prev => ({ ...prev, [name]: value }))
+                  if (errors[name]) {
+                    setErrors(prev => ({ ...prev, [name]: '' }))
+                  }
+                }}
+                className={`input ${errors.nome_evento ? 'border-red-500' : ''}`}
+                placeholder="es: IPM Essen 2026"
+              />
+              {errors.nome_evento && (
+                <p className="text-red-500 text-sm mt-1">{errors.nome_evento}</p>
+              )}
+            </div>
 
-  <div>
-    <label className="label">Data Ordine</label>
-    <input
-      type="date"
-      name="data_ordine"
-      value={formData.data_ordine ?? ''}
-      onChange={handleChange}
-      className="input"
-    />
-  </div>
-</div>
+            <div>
+              <label className="label">Data Ordine</label>
+              <input
+                type="date"
+                name="data_ordine"
+                value={formData.data_ordine ?? ''}
+                onChange={(e) => {
+                  const { name, value } = e.target
+                  setFormData(prev => ({ ...prev, [name]: value }))
+                }}
+                className="input"
+              />
+            </div>
+          </div>
 
           {/* Aggiunta Prodotti */}
           <div className="card bg-gray-50">
@@ -377,108 +508,129 @@ export default function OrdineForm({ ordine, clienti, prodotti, onClose, onSave 
               Prodotti
             </h3>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
-            <div className="md:col-span-2">
-  <label className="label">Seleziona Prodotto</label>
-  <ProdottoAutocomplete
-    prodotti={prodotti}
-    onSelect={(prodotto) => {
-      setProdottoSelezionato(prodotto.id)
-    }}
-    placeholder="Cerca prodotto per nome o codice..."
-  />
-  {errors.prodotto && (
-    <p className="text-red-500 text-sm mt-1">{errors.prodotto}</p>
-  )}
-</div>
-
-              <div>
-                <label className="label">Quantità</label>
-                <div className="flex gap-2">
-                  <input
-                    type="number"
-                    value={quantita}
-                    onChange={(e) => setQuantita(parseFloat(e.target.value) || 0)}
-                    min="0.01"
-                    step="0.01"
-                    className={`input ${errors.quantita ? 'border-red-500' : ''}`}
-                  />
-                  <button
-                    type="button"
-                    onClick={handleAggiungiProdotto}
-                    className="btn-primary whitespace-nowrap"
-                  >
-                    <Plus size={20} />
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {errors.prodotto && (
-              <p className="text-red-500 text-sm mb-2">{errors.prodotto}</p>
-            )}
             {errors.carrello && (
               <p className="text-red-500 text-sm mb-2">{errors.carrello}</p>
             )}
 
             {/* Carrello */}
-            {carrello.length > 0 && (
-              <div className="mt-4 border border-gray-200 rounded-lg overflow-hidden">
-                <table className="w-full">
-                  <thead className="bg-gray-100">
-                    <tr>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Prodotto</th>
-                      <th className="px-4 py-2 text-center text-xs font-medium text-gray-600">Q.tà</th>
-                      <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Prezzo</th>
-                      <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Subtotale</th>
-                      <th className="px-4 py-2 text-center text-xs font-medium text-gray-600">Azioni</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {carrello.map((riga) => (
-                      <tr key={riga.prodotto_id} className="hover:bg-gray-50">
-                        <td className="px-4 py-3">
-                          <div className="font-medium text-sm">{riga.prodotto?.nome}</div>
-                          <div className="text-xs text-gray-500">{riga.prodotto?.codice_prodotto}</div>
+            <div className="mt-4 border border-gray-200 rounded-lg overflow-visible">
+              <table className="w-full">
+                <thead className="bg-gray-100">
+                  <tr>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-600">Codice</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-600 w-[55%]">Descrizione</th>
+                    <th className="px-3 py-2 text-right text-xs font-medium text-gray-600">Prezzo</th>
+                    <th className="px-3 py-2 text-center text-xs font-medium text-gray-600">Q.tà</th>
+                    <th className="px-3 py-2 text-right text-xs font-medium text-gray-600">Sconto</th>
+                    <th className="px-3 py-2 text-right text-xs font-medium text-gray-600">Importo sconto</th>
+                    <th className="px-3 py-2 text-right text-xs font-medium text-gray-600">Importo</th>
+                    <th className="px-3 py-2 text-center text-xs font-medium text-gray-600">Azioni</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {carrello.map((riga, idx) => {
+                    const calc = computeRiga(riga)
+                    return (
+                      <tr
+                        key={idx}
+                        ref={(el) => {
+                          rowRefs.current[idx] = el
+                        }}
+                        className="hover:bg-gray-50"
+                      >
+                        <td className="px-3 py-2">
+                          <div className="w-24">
+                            <input
+                              type="text"
+                              value={riga.prodotto?.codice_prodotto || riga.codice_input || ''}
+                              ref={(el) => {
+                                codiceRefs.current[idx] = el
+                              }}
+                              onChange={(e) => {
+                                const next = e.target.value
+                                if (riga.prodotto_id) {
+                                  handleClearRiga(idx)
+                                }
+                                handleUpdateRiga(idx, { codice_input: next })
+                                openProdottoSearch(idx, next)
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Backspace' && !riga.prodotto_id) return
+                                if (e.key === 'Backspace' && riga.prodotto_id && !prodottoSearchOpen) {
+                                  e.preventDefault()
+                                  handleClearRiga(idx)
+                                  return
+                                }
+                              }}
+                              className="input"
+                            />
+                          </div>
                         </td>
-                        <td className="px-4 py-3">
-                          <input
-                            type="number"
-                            value={riga.quantita}
-                            onChange={(e) => handleUpdateQuantita(riga.prodotto_id, parseFloat(e.target.value) || 0)}
-                            className="input text-center w-20"
-                            step="0.01"
-                            min="0.01"
-                          />
+
+                        <td className="px-3 py-2">
+                          <div className="text-sm font-medium text-gray-900">{riga.prodotto?.nome || ''}</div>
+                          <div className="text-xs text-gray-500">{riga.prodotto?.descrizione || ''}</div>
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-3 py-2">
                           <input
                             type="number"
                             value={riga.prezzo_unitario}
-                            onChange={(e) => handleUpdatePrezzo(riga.prodotto_id, parseFloat(e.target.value) || 0)}
+                            onChange={(e) => handleUpdateRiga(idx, { prezzo_unitario: parseFloat(e.target.value) || 0 })}
+                            ref={(el) => {
+                              prezzoRefs.current[idx] = el
+                            }}
                             className="input text-right w-28"
                             step="0.01"
                             min="0"
+                            disabled={!riga.prodotto_id}
                           />
                         </td>
-                        <td className="px-4 py-3 text-right font-semibold">
-                          {formatCurrency(riga.quantita * riga.prezzo_unitario)}
+                        <td className="px-3 py-2">
+                          <input
+                            type="number"
+                            value={riga.quantita}
+                            onChange={(e) => handleUpdateRiga(idx, { quantita: parseFloat(e.target.value) || 0 })}
+                            className={`input text-center w-20 ${errors[`quantita_${idx}`] ? 'border-red-500' : ''}`}
+                            step="0.01"
+                            min="0.01"
+                            disabled={!riga.prodotto_id}
+                          />
                         </td>
-                        <td className="px-4 py-3 text-center">
+                        <td className="px-3 py-2">
+                          <input
+                            type="number"
+                            value={Number(riga.sconto) === 0 ? '' : riga.sconto}
+                            onChange={(e) => {
+                              const raw = e.target.value
+                              handleUpdateRiga(idx, { sconto: raw === '' ? 0 : (parseFloat(raw) || 0) })
+                            }}
+                            className={`input text-right w-24 ${errors[`sconto_${idx}`] ? 'border-red-500' : ''}`}
+                            step="0.01"
+                            disabled={!riga.prodotto_id}
+                          />
+                        </td>
+                        <td className="px-3 py-2 text-right font-semibold text-red-600">
+                          {calc.scontoImporto > 0 ? `- ${formatCurrency(calc.scontoImporto)}` : ''}
+                        </td>
+                        <td className="px-3 py-2 text-right font-semibold">
+                          {riga.prodotto_id ? formatCurrency(calc.net) : ''}
+                        </td>
+                        <td className="px-3 py-2 text-center">
                           <button
                             type="button"
-                            onClick={() => handleRimuoviProdotto(riga.prodotto_id)}
+                            onClick={() => handleClearRiga(idx)}
                             className="text-red-600 hover:text-red-800"
+                            disabled={!riga.prodotto_id}
                           >
                             <Trash2 size={18} />
                           </button>
                         </td>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
 
           {/* Tipo Vendita Espositori */}
@@ -512,83 +664,12 @@ export default function OrdineForm({ ordine, clienti, prodotti, onClose, onSave 
             </div>
           )}
 
-          {/* Sconto e Totali */}
-<div className="card bg-gray-50">
-  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-    <div>
-      <label className="label">Tipo Sconto</label>
-      <select
-        value={formData.sconto_percentuale !== null && formData.sconto_percentuale !== undefined ? 'percentuale' : 'valore'}
-        onChange={(e) => {
-          if (e.target.value === 'percentuale') {
-            setFormData(prev => ({ ...prev, sconto_percentuale: 0 }))
-          } else {
-            setFormData(prev => ({ ...prev, sconto_percentuale: null }))
-          }
-        }}
-        className="input"
-      >
-        <option value="percentuale">Percentuale (%)</option>
-        <option value="valore">Valore (€)</option>
-      </select>
-    </div>
-
-    {formData.sconto_percentuale !== null && formData.sconto_percentuale !== undefined ? (
-      <div>
-        <label className="label">Sconto %</label>
-        <input
-          type="number"
-          name="sconto_percentuale"
-          value={formData.sconto_percentuale || ''}
-          onChange={handleChange}
-          className={`input ${errors.sconto_percentuale ? 'border-red-500' : ''}`}
-          placeholder="0"
-          min={LIMITS.MIN_SCONTO_PERCENTUALE}
-          max={LIMITS.MAX_SCONTO_PERCENTUALE}
-          step="0.01"
-        />
-        {errors.sconto_percentuale && (
-          <p className="text-red-500 text-sm mt-1">{errors.sconto_percentuale}</p>
-        )}
-      </div>
-    ) : (
-      <div>
-        <label className="label">Sconto €</label>
-        <input
-          type="number"
-          value={(formData.sconto_valore || 0)}
-          onChange={(e) => {
-            const val = parseFloat(e.target.value) || 0
-            setFormData(prev => ({ 
-              ...prev, 
-              sconto_valore: val,
-              sconto_percentuale: null 
-            }))
-          }}
-          className="input"
-          placeholder="0.00"
-          min="0"
-          max={subtotale}
-          step="0.01"
-        />
-      </div>
-    )}
-
-              <div className="space-y-2 text-right">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Subtotale:</span>
-                  <span className="font-semibold">{formatCurrency(subtotale)}</span>
-                </div>
-                {scontoValore > 0 && (
-                  <div className="flex justify-between text-sm text-red-600">
-                    <span>Sconto ({scontoPercentuale}%):</span>
-                    <span>- {formatCurrency(scontoValore)}</span>
-                  </div>
-                )}
-                <div className="flex justify-between text-xl font-bold border-t pt-2">
-                  <span>Totale:</span>
-                  <span className="text-primary-600">{formatCurrency(totale)}</span>
-                </div>
+          {/* Totali */}
+          <div className="card bg-gray-50">
+            <div className="space-y-2 text-right">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Totale:</span>
+                <span className="text-primary-600 font-bold">{formatCurrency(totale)}</span>
               </div>
             </div>
           </div>
@@ -599,7 +680,10 @@ export default function OrdineForm({ ordine, clienti, prodotti, onClose, onSave 
             <textarea
               name="note"
               value={formData.note ?? ''}
-              onChange={handleChange}
+              onChange={(e) => {
+                const { name, value } = e.target
+                setFormData(prev => ({ ...prev, [name]: value }))
+              }}
               className="input"
               rows={3}
               placeholder="Note aggiuntive per l'ordine..."
@@ -619,7 +703,7 @@ export default function OrdineForm({ ordine, clienti, prodotti, onClose, onSave 
             <button
               type="submit"
               className="btn-primary"
-              disabled={saving || carrello.length === 0}
+              disabled={saving || carrello.filter(r => r.prodotto_id).length === 0}
             >
               {saving ? 'Salvataggio...' : ordine ? 'Salva Modifiche' : 'Crea Ordine'}
             </button>
