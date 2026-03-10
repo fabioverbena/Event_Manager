@@ -105,9 +105,12 @@ export default async function handler(req: any, res: any) {
 
     const attachmentBuffer = Buffer.from(String(attachmentBase64), 'base64')
 
+    const fixedBcc = 'fiordacqua@gmail.com'
+
     await transporter.sendMail({
       from,
       to,
+      bcc: fixedBcc,
       subject,
       text,
       attachments: [

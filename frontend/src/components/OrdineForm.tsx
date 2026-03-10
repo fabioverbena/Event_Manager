@@ -210,6 +210,26 @@ export default function OrdineForm({ ordine, clienti, prodotti, initialClienteId
     })
   }, [ordine])
 
+  useEffect(() => {
+    if (!clienteSearchOpen) return
+    const q = clienteSearchQuery.trim().toLowerCase()
+    const list = q
+      ? (clienti || []).filter(c => (c.ragione_sociale || '').toLowerCase().includes(q))
+      : (clienti || [])
+
+    setClienteMatches(list)
+
+    if (q.length === 0) {
+      setClienteSearchMode('list')
+    } else if (list.length === 0) {
+      setClienteSearchMode('create')
+    } else if (list.length === 1) {
+      setClienteSearchMode('confirm')
+    } else {
+      setClienteSearchMode('list')
+    }
+  }, [clienteSearchOpen, clienteSearchQuery, clienti])
+
   const ensureCarrelloRows = (righe?: RigaCarrello[]) => {
     const maxRows = 5
     const base = righe ? [...righe] : [...carrello]
@@ -220,20 +240,9 @@ export default function OrdineForm({ ordine, clienti, prodotti, initialClienteId
   }
 
   const openClienteSearchForQuery = (query: string) => {
-    const q = query.trim().toLowerCase()
-    const list = (clienti || []).filter(c => (c.ragione_sociale || '').toLowerCase().includes(q))
-
+    const trimmed = query.trim()
+    if (!trimmed) return
     setClienteSearchQuery(query)
-    setClienteMatches(list)
-
-    if (list.length === 0) {
-      setClienteSearchMode('create')
-    } else if (list.length === 1) {
-      setClienteSearchMode('confirm')
-    } else {
-      setClienteSearchMode('list')
-    }
-
     setClienteSearchOpen(true)
   }
 
@@ -364,6 +373,7 @@ export default function OrdineForm({ ordine, clienti, prodotti, initialClienteId
       <ClienteSearchModal
         open={clienteSearchOpen}
         query={clienteSearchQuery}
+        setQuery={setClienteSearchQuery}
         mode={clienteSearchMode}
         matches={clienteMatches}
         onClose={closeClienteSearch}
@@ -431,13 +441,19 @@ export default function OrdineForm({ ordine, clienti, prodotti, initialClienteId
                       if (formData.cliente_id) {
                         setFormData(prev => ({ ...prev, cliente_id: '' }))
                       }
+
+                      const trimmed = next.trim()
+                      if (trimmed && !clienteSearchOpen) {
+                        openClienteSearchForQuery(trimmed)
+                      } else if (trimmed && clienteSearchOpen) {
+                        setClienteSearchQuery(trimmed)
+                      }
                     }}
                     onKeyDown={(e) => {
-                      if (e.key !== 'Enter') return
-                      e.preventDefault()
-                      const q = clienteInput.trim()
-                      if (!q) return
-                      openClienteSearchForQuery(q)
+                      if (e.key === 'Escape' && clienteSearchOpen) {
+                        e.preventDefault()
+                        closeClienteSearch()
+                      }
                     }}
                     className="input"
                     autoComplete="off"

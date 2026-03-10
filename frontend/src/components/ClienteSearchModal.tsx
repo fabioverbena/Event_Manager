@@ -9,6 +9,7 @@ type ClienteSearchMode = 'list' | 'confirm' | 'create'
 interface ClienteSearchModalProps {
   open: boolean
   query: string
+  setQuery: (next: string) => void
   mode: ClienteSearchMode
   matches: Cliente[]
   onClose: () => void
@@ -16,12 +17,12 @@ interface ClienteSearchModalProps {
   onCreateNew: (ragioneSociale: string) => void
 }
 
-export default function ClienteSearchModal({ open, query, mode, matches, onClose, onSelect, onCreateNew }: ClienteSearchModalProps) {
-  const closeBtnRef = useRef<HTMLButtonElement>(null)
+export default function ClienteSearchModal({ open, query, setQuery, mode, matches, onClose, onSelect, onCreateNew }: ClienteSearchModalProps) {
+  const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (!open) return
-    const t = window.setTimeout(() => closeBtnRef.current?.focus(), 0)
+    const t = window.setTimeout(() => inputRef.current?.focus(), 0)
     return () => window.clearTimeout(t)
   }, [open])
 
@@ -35,13 +36,27 @@ export default function ClienteSearchModal({ open, query, mode, matches, onClose
         <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
           <h3 className="text-xl font-bold text-gray-900">Seleziona Cliente</h3>
           <button
-            ref={closeBtnRef}
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 transition-colors"
             type="button"
           >
             <X size={24} />
           </button>
+        </div>
+
+        <div className="px-6 pt-4">
+          <input
+            ref={inputRef}
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') onClose()
+            }}
+            className="input"
+            placeholder="Cerca cliente…"
+            autoComplete="off"
+          />
         </div>
 
         <div className="p-6 space-y-4">
@@ -70,7 +85,13 @@ export default function ClienteSearchModal({ open, query, mode, matches, onClose
           {mode === 'list' && (
             <div className="space-y-3">
               <div className="text-sm text-gray-600">
-                Trovati <span className="font-semibold">{matches.length}</span> clienti per "{normalizedQuery}". Seleziona dalla lista.
+                {normalizedQuery
+                  ? (
+                    <>Trovati <span className="font-semibold">{matches.length}</span> clienti per "{normalizedQuery}". Seleziona dalla lista.</>
+                  )
+                  : (
+                    <>Trovati <span className="font-semibold">{matches.length}</span> clienti. Seleziona dalla lista.</>
+                  )}
               </div>
 
               <div className="border border-gray-200 rounded-lg overflow-hidden">
