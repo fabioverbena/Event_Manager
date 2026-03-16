@@ -35,18 +35,31 @@ const ESPOSITORI_IMAGE_PATHS: Record<EspositoreImageKey, string> = {
   leo: 'espositori/leonardo.png',
 }
 
-const loadImage = (src: string) =>
-  new Promise<HTMLImageElement>((resolve, reject) => {
-    const img = new Image()
-    img.onload = () => resolve(img)
-    img.onerror = () => reject(new Error(`Failed to load image: ${src}`))
-    img.src = src
-  })
+type LoadedImage = { img: HTMLImageElement; dataUrl: string }
 
-const loadFirstAvailableImage = async (sources: string[]) => {
+const loadImageFromUrl = async (src: string): Promise<LoadedImage> => {
+  const response = await fetch(src)
+  if (!response.ok) throw new Error(`Failed to fetch image: ${src}`)
+  const blob = await response.blob()
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = reject
+    reader.readAsDataURL(blob)
+  })
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const el = new Image()
+    el.onload = () => resolve(el)
+    el.onerror = reject
+    el.src = dataUrl
+  })
+  return { img, dataUrl }
+}
+
+const loadFirstAvailableImage = async (sources: string[]): Promise<LoadedImage> => {
   for (const src of sources) {
     try {
-      return await loadImage(src)
+      return await loadImageFromUrl(src)
     } catch {
       // ignore
     }
@@ -246,7 +259,7 @@ const renderEspositoriImages = async (doc: jsPDF, ordine: Ordine, startY: number
   const gap = 6
   const minHeight = 12
 
-  const loadKeyImage = async (key: EspositoreImageKey): Promise<HTMLImageElement | null> => {
+  const loadKeyImage = async (key: EspositoreImageKey): Promise<LoadedImage | null> => {
     try {
       return await loadFirstAvailableImage([
         `${baseUrl}${ESPOSITORI_IMAGE_PATHS[key]}`,
@@ -258,10 +271,10 @@ const renderEspositoriImages = async (doc: jsPDF, ordine: Ordine, startY: number
     }
   }
 
-  const loaded: HTMLImageElement[] = []
+  const loaded: LoadedImage[] = []
   for (const k of keys) {
-    const img = await loadKeyImage(k)
-    if (img) loaded.push(img)
+    const loaded0 = await loadKeyImage(k)
+    if (loaded0) loaded.push(loaded0)
   }
   if (loaded.length === 0) return startY
 
@@ -269,7 +282,7 @@ const renderEspositoriImages = async (doc: jsPDF, ordine: Ordine, startY: number
   if (availableHeight() < minHeight) return startY
 
   if (imgs.length === 1) {
-    const img = imgs[0]
+    const { img, dataUrl } = imgs[0]
 
     const imgW = img.naturalWidth || img.width
     const imgH = img.naturalHeight || img.height
@@ -281,7 +294,7 @@ const renderEspositoriImages = async (doc: jsPDF, ordine: Ordine, startY: number
     const h = imgH * scale
 
     if (availableHeight() < Math.min(minHeight, h)) return yPos
-    doc.addImage(img, 'PNG', leftX, yPos, w, h)
+    doc.addImage(dataUrl, 'PNG', leftX, yPos, w, h)
     yPos += h + gap
     return yPos
   }
@@ -292,9 +305,9 @@ const renderEspositoriImages = async (doc: jsPDF, ordine: Ordine, startY: number
   const slotW = (contentWidth - gap) / 2
   const slotH = Math.max(minHeight, availableHeight())
 
-  const calcScaled = (img: HTMLImageElement) => {
-    const imgW = img.naturalWidth || img.width
-    const imgH = img.naturalHeight || img.height
+  const calcScaled = (loaded: LoadedImage) => {
+    const imgW = loaded.img.naturalWidth || loaded.img.width
+    const imgH = loaded.img.naturalHeight || loaded.img.height
     if (!imgW || !imgH) return { w: slotW, h: minHeight }
     const scale = Math.min(slotW / imgW, slotH / imgH)
     return { w: imgW * scale, h: imgH * scale }
@@ -305,8 +318,8 @@ const renderEspositoriImages = async (doc: jsPDF, ordine: Ordine, startY: number
   const rowH = Math.max(leftScaled.h, rightScaled.h)
 
   if (availableHeight() < Math.min(minHeight, rowH)) return yPos
-  doc.addImage(imgLeft, 'PNG', leftX, yPos, leftScaled.w, leftScaled.h)
-  doc.addImage(imgRight, 'PNG', leftX + slotW + gap, yPos, rightScaled.w, rightScaled.h)
+  doc.addImage(imgLeft.dataUrl, 'PNG', leftX, yPos, leftScaled.w, leftScaled.h)
+  doc.addImage(imgRight.dataUrl, 'PNG', leftX + slotW + gap, yPos, rightScaled.w, rightScaled.h)
   yPos += rowH + gap
   return yPos
 }
@@ -341,10 +354,10 @@ const renderDocumentoPage = async (doc: jsPDF, ordine: Ordine, tipoDocumento: Ti
   const tipoVenditaEspositoriNorm = (ordine.tipo_vendita_espositori || '').toString().toLowerCase()
   const isLeasingGrenke = tipoVenditaEspositoriNorm.includes('leasing')
 
-  let logoImg: HTMLImageElement | null = null
+  let logoLoaded: LoadedImage | null = null
   try {
     const baseUrl = import.meta.env.BASE_URL || '/'
-    logoImg = await loadFirstAvailableImage([
+    logoLoaded = await loadFirstAvailableImage([
       `${baseUrl}logo.png`,
       'logo.png',
       '/logo.png',
@@ -353,8 +366,8 @@ const renderDocumentoPage = async (doc: jsPDF, ordine: Ordine, tipoDocumento: Ti
     console.error(e)
   }
 
-  if (logoImg) {
-    doc.addImage(logoImg, 'PNG', 20, 14, 60, 18)
+  if (logoLoaded) {
+    doc.addImage(logoLoaded.dataUrl, 'PNG', 20, 14, 60, 18)
   }
 
   doc.setFontSize(20)
