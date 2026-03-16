@@ -45,6 +45,12 @@ interface OrdineFormProps {
 export default function OrdineForm({ ordine, clienti, prodotti, initialClienteId, onClose, onSave }: OrdineFormProps) {
   const navigate = useNavigate()
 
+  const parseLocaleNumber = (raw: string) => {
+    const normalized = (raw || '').replace(',', '.')
+    const n = parseFloat(normalized)
+    return Number.isFinite(n) ? n : 0
+  }
+
   const [prodottoSearchOpen, setProdottoSearchOpen] = useState(false)
   const [prodottoSearchQuery, setProdottoSearchQuery] = useState('')
   const [prodottoSearchRowIndex, setProdottoSearchRowIndex] = useState<number | null>(null)
@@ -124,8 +130,6 @@ export default function OrdineForm({ ordine, clienti, prodotti, initialClienteId
     setFormData(prev => ({
       ...prev,
       subtotale,
-      sconto_percentuale: null,
-      sconto_valore: 0,
       totale
     }))
   }, [subtotale, totale])
@@ -155,7 +159,14 @@ export default function OrdineForm({ ordine, clienti, prodotti, initialClienteId
           codice_input: '',
           quantita: riga.quantita,
           prezzo_unitario: riga.prezzo_unitario,
-          sconto: 0,
+          sconto: (() => {
+            const gross = (Number(riga.quantita) || 0) * (Number(riga.prezzo_unitario) || 0)
+            const net = Number(riga.subtotale_riga) || gross
+            if (gross <= 0) return 0
+            if (net >= gross) return 0
+            const perc = ((gross - net) / gross) * 100
+            return Math.round(perc * 100) / 100
+          })(),
           note_riga: riga.note_riga || '',
         }))
         const maxRows = 5
@@ -262,8 +273,12 @@ export default function OrdineForm({ ordine, clienti, prodotti, initialClienteId
     })
   }
 
-  const handleClearRiga = (index: number) => {
+  const handleResetRiga = (index: number) => {
     handleUpdateRiga(index, { prodotto_id: '', prodotto: undefined, codice_input: '', quantita: 1, prezzo_unitario: 0, sconto: 0, note_riga: '' })
+  }
+
+  const handleClearRiga = (index: number) => {
+    setCarrello(prev => ensureCarrelloRows(prev.filter((_, i) => i !== index)))
   }
 
   const openProdottoSearch = (rowIndex: number, initialQuery: string) => {
@@ -353,8 +368,6 @@ export default function OrdineForm({ ordine, clienti, prodotti, initialClienteId
 
       const ordineCompleto: OrdineInsert = {
         ...formData,
-        sconto_percentuale: null,
-        sconto_valore: 0,
         tipo_vendita_espositori: hasEspositori ? tipoVenditaEspositori : null,
       }
 
@@ -362,7 +375,6 @@ export default function OrdineForm({ ordine, clienti, prodotti, initialClienteId
       onClose()
     } catch (error) {
       console.error('Errore salvataggio:', error)
-
     } finally {
       setSaving(false)
     }
@@ -565,7 +577,7 @@ export default function OrdineForm({ ordine, clienti, prodotti, initialClienteId
                               onChange={(e) => {
                                 const next = e.target.value
                                 if (riga.prodotto_id) {
-                                  handleClearRiga(idx)
+                                  handleResetRiga(idx)
                                 }
                                 handleUpdateRiga(idx, { codice_input: next })
                                 openProdottoSearch(idx, next)
@@ -574,7 +586,7 @@ export default function OrdineForm({ ordine, clienti, prodotti, initialClienteId
                                 if (e.key === 'Backspace' && !riga.prodotto_id) return
                                 if (e.key === 'Backspace' && riga.prodotto_id && !prodottoSearchOpen) {
                                   e.preventDefault()
-                                  handleClearRiga(idx)
+                                  handleResetRiga(idx)
                                   return
                                 }
                               }}
@@ -591,7 +603,7 @@ export default function OrdineForm({ ordine, clienti, prodotti, initialClienteId
                           <input
                             type="number"
                             value={riga.prezzo_unitario}
-                            onChange={(e) => handleUpdateRiga(idx, { prezzo_unitario: parseFloat(e.target.value) || 0 })}
+                            onChange={(e) => handleUpdateRiga(idx, { prezzo_unitario: parseLocaleNumber(e.target.value) })}
                             ref={(el) => {
                               prezzoRefs.current[idx] = el
                             }}
@@ -605,7 +617,7 @@ export default function OrdineForm({ ordine, clienti, prodotti, initialClienteId
                           <input
                             type="number"
                             value={riga.quantita}
-                            onChange={(e) => handleUpdateRiga(idx, { quantita: parseFloat(e.target.value) || 0 })}
+                            onChange={(e) => handleUpdateRiga(idx, { quantita: parseLocaleNumber(e.target.value) })}
                             className={`input text-center w-20 ${errors[`quantita_${idx}`] ? 'border-red-500' : ''}`}
                             step="0.01"
                             min="0.01"
@@ -618,7 +630,7 @@ export default function OrdineForm({ ordine, clienti, prodotti, initialClienteId
                             value={Number(riga.sconto) === 0 ? '' : riga.sconto}
                             onChange={(e) => {
                               const raw = e.target.value
-                              handleUpdateRiga(idx, { sconto: raw === '' ? 0 : (parseFloat(raw) || 0) })
+                              handleUpdateRiga(idx, { sconto: raw === '' ? 0 : parseLocaleNumber(raw) })
                             }}
                             className={`input text-right w-24 ${errors[`sconto_${idx}`] ? 'border-red-500' : ''}`}
                             step="0.01"

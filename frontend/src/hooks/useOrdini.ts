@@ -26,6 +26,20 @@ export interface OrdineCompleto extends Ordine {
   })[]
 }
 
+const round2 = (n: unknown) => {
+  const v = Number(n)
+  if (!Number.isFinite(v)) return 0
+  return Math.round(v * 100) / 100
+}
+
+const deriveSubtotaleRiga = (riga: RigaOrdineCreate) => {
+  const q = round2((riga as any).quantita)
+  const p = round2((riga as any).prezzo_unitario)
+  const st = (riga as any).subtotale_riga
+  const hasSubtotale = st != null && Number.isFinite(Number(st))
+  return hasSubtotale ? round2(st) : round2(q * p)
+}
+
 export function useOrdini() {
   const [ordini, setOrdini] = useState<OrdineCompleto[]>([])
   const [clienti, setClienti] = useState<Cliente[]>([])
@@ -103,18 +117,21 @@ export function useOrdini() {
   const createOrdine = async (ordine: OrdineInsert, righe: RigaOrdineCreate[]) => {
     try {
       // Forza calcoli corretti
-      const subtotaleCalcolato = righe.reduce((sum, r) => sum + (r.subtotale_riga ?? 0), 0)
-      const scontoCalcolato = ordine.sconto_percentuale && ordine.sconto_percentuale > 0
-        ? (subtotaleCalcolato * ordine.sconto_percentuale) / 100 
-        : (ordine.sconto_valore || 0)
-      const totaleCalcolato = subtotaleCalcolato - scontoCalcolato
+      const grossCalcolato = righe.reduce((sum, r) => sum + round2(round2(r.prezzo_unitario) * round2(r.quantita)), 0)
+      const netCalcolato = righe.reduce((sum, r) => sum + deriveSubtotaleRiga(r), 0)
+      const scontoRighe = Math.max(0, round2(grossCalcolato - netCalcolato))
+      const scontoOrdine = ordine.sconto_percentuale && ordine.sconto_percentuale > 0
+        ? round2((netCalcolato * ordine.sconto_percentuale) / 100)
+        : 0
+      const scontoCalcolato = round2(scontoRighe + scontoOrdine)
+      const totaleCalcolato = round2(grossCalcolato - scontoCalcolato)
 
       // Crea ordine con totali corretti
       const { data: ordineData, error: ordineError } = await supabase
         .from('ordini')
         .insert({
           ...ordine,
-          subtotale: subtotaleCalcolato,
+          subtotale: grossCalcolato,
           sconto_valore: scontoCalcolato,
           totale: totaleCalcolato
         })
@@ -127,6 +144,9 @@ export function useOrdini() {
       const righeConOrdineId = righe.map(riga => ({
         ...riga,
         ordine_id: ordineData.id,
+        quantita: round2(riga.quantita),
+        prezzo_unitario: round2(riga.prezzo_unitario),
+        subtotale_riga: deriveSubtotaleRiga(riga),
       }))
 
       const { error: righeError } = await supabase
@@ -148,35 +168,24 @@ export function useOrdini() {
 
   const updateOrdine = async (id: string, updates: OrdineUpdate, righe?: RigaOrdineCreate[]) => {
     try {
-      // DEBUG: Vediamo cosa arriva
-      console.log('=== UPDATE ORDINE DEBUG ===')
-      console.log('Updates ricevuti:', updates)
-      console.log('Righe:', righe)
-      
       // Forza calcoli corretti se ci sono righe
       let updatesFinali = updates
       if (righe) {
-        const subtotaleCalcolato = righe.reduce((sum, r) => sum + (r.subtotale_riga ?? 0), 0)
-        console.log('Subtotale calcolato da righe:', subtotaleCalcolato)
-        
-        const scontoCalcolato = updates.sconto_percentuale && updates.sconto_percentuale > 0
-          ? (subtotaleCalcolato * updates.sconto_percentuale) / 100 
-          : (updates.sconto_valore || 0)
-        console.log('Sconto calcolato:', scontoCalcolato)
-        console.log('updates.sconto_valore originale:', updates.sconto_valore)
-        console.log('updates.sconto_percentuale:', updates.sconto_percentuale)
-        
-        const totaleCalcolato = subtotaleCalcolato - scontoCalcolato
-        console.log('Totale calcolato:', totaleCalcolato)
+        const grossCalcolato = righe.reduce((sum, r) => sum + round2(round2(r.prezzo_unitario) * round2(r.quantita)), 0)
+        const netCalcolato = righe.reduce((sum, r) => sum + deriveSubtotaleRiga(r), 0)
+        const scontoRighe = Math.max(0, round2(grossCalcolato - netCalcolato))
+        const scontoOrdine = updates.sconto_percentuale && updates.sconto_percentuale > 0
+          ? round2((netCalcolato * updates.sconto_percentuale) / 100)
+          : 0
+        const scontoCalcolato = round2(scontoRighe + scontoOrdine)
+        const totaleCalcolato = round2(grossCalcolato - scontoCalcolato)
         
         updatesFinali = {
           ...updates,
-          subtotale: subtotaleCalcolato,
+          subtotale: grossCalcolato,
           sconto_valore: scontoCalcolato,
           totale: totaleCalcolato
         }
-        
-        console.log('Updates finali da salvare:', updatesFinali)
       }
 
       // Aggiorna ordine
@@ -203,6 +212,9 @@ export function useOrdini() {
         const righeConOrdineId = righe.map(riga => ({
           ...riga,
           ordine_id: id,
+          quantita: round2(riga.quantita),
+          prezzo_unitario: round2(riga.prezzo_unitario),
+          subtotale_riga: deriveSubtotaleRiga(riga),
         }))
 
         const { error: righeError } = await supabase

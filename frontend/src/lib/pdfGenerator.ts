@@ -28,6 +28,13 @@ type Ordine = Database['public']['Tables']['ordini']['Row'] & {
 
 type TipoDocumento = 'ordine' | 'preventivo'
 
+type EspositoreImageKey = 'titano' | 'leo'
+
+const ESPOSITORI_IMAGE_PATHS: Record<EspositoreImageKey, string> = {
+  titano: 'espositori/titano.png',
+  leo: 'espositori/leonardo.png',
+}
+
 const loadImage = (src: string) =>
   new Promise<HTMLImageElement>((resolve, reject) => {
     const img = new Image()
@@ -204,9 +211,132 @@ const matchesGrenkeModel = (nome: string, modelKey: string) => {
   }
 }
 
+const detectEspositoreImageKeys = (ordine: Ordine): EspositoreImageKey[] => {
+  const rows = ordine.righe_ordine || []
+  const keys = new Set<EspositoreImageKey>()
+
+  for (const r of rows) {
+    const nome = r.prodotti?.nome || ''
+    const codice = r.prodotti?.codice_prodotto || ''
+    const n = normalizeGrenkeProductName(`${codice} ${nome}`)
+
+    if (n.includes('titano')) {
+      keys.add('titano')
+      continue
+    }
+    if (n.includes('leo')) {
+      keys.add('leo')
+    }
+  }
+
+  return Array.from(keys)
+}
+
+const renderEspositoriImages = async (doc: jsPDF, ordine: Ordine, startY: number, maxBottomY: number) => {
+  const keys = detectEspositoreImageKeys(ordine)
+  if (keys.length === 0) return startY
+
+  const baseUrl = import.meta.env.BASE_URL || '/'
+  let yPos = startY
+
+  const availableHeight = () => Math.max(0, maxBottomY - yPos)
+
+  const leftX = 20
+  const contentWidth = 170
+  const gap = 6
+  const minHeight = 12
+
+  const loadKeyImage = async (key: EspositoreImageKey): Promise<HTMLImageElement | null> => {
+    try {
+      return await loadFirstAvailableImage([
+        `${baseUrl}${ESPOSITORI_IMAGE_PATHS[key]}`,
+        `/${ESPOSITORI_IMAGE_PATHS[key]}`,
+        ESPOSITORI_IMAGE_PATHS[key],
+      ])
+    } catch {
+      return null
+    }
+  }
+
+  const loaded: HTMLImageElement[] = []
+  for (const k of keys) {
+    const img = await loadKeyImage(k)
+    if (img) loaded.push(img)
+  }
+  if (loaded.length === 0) return startY
+
+  const imgs = loaded.slice(0, 2)
+  if (availableHeight() < minHeight) return startY
+
+  if (imgs.length === 1) {
+    const img = imgs[0]
+
+    const imgW = img.naturalWidth || img.width
+    const imgH = img.naturalHeight || img.height
+    if (!imgW || !imgH) return yPos
+
+    const maxH = Math.max(minHeight, availableHeight())
+    const scale = Math.min(contentWidth / imgW, maxH / imgH)
+    const w = imgW * scale
+    const h = imgH * scale
+
+    if (availableHeight() < Math.min(minHeight, h)) return yPos
+    doc.addImage(img, 'PNG', leftX, yPos, w, h)
+    yPos += h + gap
+    return yPos
+  }
+
+  const imgLeft = imgs[0]
+  const imgRight = imgs[1]
+
+  const slotW = (contentWidth - gap) / 2
+  const slotH = Math.max(minHeight, availableHeight())
+
+  const calcScaled = (img: HTMLImageElement) => {
+    const imgW = img.naturalWidth || img.width
+    const imgH = img.naturalHeight || img.height
+    if (!imgW || !imgH) return { w: slotW, h: minHeight }
+    const scale = Math.min(slotW / imgW, slotH / imgH)
+    return { w: imgW * scale, h: imgH * scale }
+  }
+
+  const leftScaled = calcScaled(imgLeft)
+  const rightScaled = calcScaled(imgRight)
+  const rowH = Math.max(leftScaled.h, rightScaled.h)
+
+  if (availableHeight() < Math.min(minHeight, rowH)) return yPos
+  doc.addImage(imgLeft, 'PNG', leftX, yPos, leftScaled.w, leftScaled.h)
+  doc.addImage(imgRight, 'PNG', leftX + slotW + gap, yPos, rightScaled.w, rightScaled.h)
+  yPos += rowH + gap
+  return yPos
+}
+
 const renderDocumentoPage = async (doc: jsPDF, ordine: Ordine, tipoDocumento: TipoDocumento) => {
   const isPreventivo = tipoDocumento === 'preventivo'
   const labelDocumento = isPreventivo ? 'PREVENTIVO' : 'ORDINE'
+
+  const righeForTotals = ordine.righe_ordine || []
+  const subtotaleLordoDerivato = righeForTotals.reduce((sum, r) => {
+    return sum + (Number(r.prezzo_unitario) || 0) * (Number(r.quantita) || 0)
+  }, 0)
+
+  const subtotaleNettoDerivato = righeForTotals.reduce((sum, r) => {
+    const fallback = (Number(r.prezzo_unitario) || 0) * (Number(r.quantita) || 0)
+    return sum + (Number(r.subtotale_riga) || fallback)
+  }, 0)
+
+  const ordineScontoValore = Number(ordine.sconto_valore) || 0
+  const ordineScontoPerc = Number(ordine.sconto_percentuale) || 0
+  const scontoRigheDerivato = Math.max(0, subtotaleLordoDerivato - subtotaleNettoDerivato)
+
+  const scontoValoreDerivato = ordineScontoValore > 0
+    ? ordineScontoValore
+    : ordineScontoPerc > 0
+      ? (subtotaleNettoDerivato * ordineScontoPerc) / 100
+      : scontoRigheDerivato
+
+  const subtotaleDerivato = subtotaleLordoDerivato
+  const totaleDerivato = Math.max(0, subtotaleDerivato - scontoValoreDerivato)
 
   const tipoVenditaEspositoriNorm = (ordine.tipo_vendita_espositori || '').toString().toLowerCase()
   const isLeasingGrenke = tipoVenditaEspositoriNorm.includes('leasing')
@@ -356,7 +486,13 @@ const renderDocumentoPage = async (doc: jsPDF, ordine: Ordine, tipoDocumento: Ti
     const prezzoUnit = modelRow?.prezzo_unitario || 0
     const qty = modelRow?.quantita || 1
     const scontoPerc = ordine.sconto_percentuale || 0
-    const subtotaleScontato = prezzoUnit * qty * (1 - scontoPerc / 100)
+    const gross = prezzoUnit * qty
+    const scontoImporto = scontoPerc > 0
+      ? gross * (scontoPerc / 100)
+      : (Number(ordine.sconto_valore) || 0) > 0
+        ? Number(ordine.sconto_valore)
+        : 0
+    const subtotaleScontato = Math.max(0, gross - scontoImporto)
 
     autoTable(doc, {
       startY: yPos,
@@ -462,31 +598,46 @@ const renderDocumentoPage = async (doc: jsPDF, ordine: Ordine, tipoDocumento: Ti
 
     yPos = (doc as any).lastAutoTable.finalY + 10
   }
+
+  const pageHeight = doc.internal.pageSize.height
+  const footerTopY = pageHeight - 39
+  const notesBlockHeight = (() => {
+    if (!ordine.note) return 0
+    doc.setFontSize(10)
+    const splitNotes = doc.splitTextToSize(ordine.note, 170)
+    return 5 + splitNotes.length * 4 + 2
+  })()
+
+  const totalsHeight = (scontoValoreDerivato > 0 ? 12 : 6) + 10
+  const maxImagesBottomY = footerTopY - 2 - (totalsHeight + notesBlockHeight)
+
+  yPos = await renderEspositoriImages(doc, ordine, yPos, maxImagesBottomY)
   
   // Totali
   const finalY = yPos
   
   doc.setFont('helvetica', 'normal')
-  doc.text('Subtotale:', 130, finalY)
-  doc.text(formatCurrency(ordine.subtotale), 185, finalY, { align: 'right' })
+  doc.text('Subtotale Lordo:', 130, finalY)
+  doc.text(formatCurrency(subtotaleLordoDerivato), 185, finalY, { align: 'right' })
   
-  if (ordine.sconto_valore && ordine.sconto_valore > 0) {
-    const labelSconto = ordine.sconto_percentuale && ordine.sconto_percentuale > 0
-      ? `Sconto (${ordine.sconto_percentuale}%):`
+  if (scontoValoreDerivato > 0) {
+    const perc = Number(ordine.sconto_percentuale) || 0
+    const labelSconto = perc > 0
+      ? `Sconto (${perc}%):`
       : 'Sconto:'
     doc.text(labelSconto, 130, finalY + 6)
-    doc.text(`- ${formatCurrency(ordine.sconto_valore)}`, 185, finalY + 6, { align: 'right' })
-  } 
+    doc.text(`- ${formatCurrency(scontoValoreDerivato)}`, 185, finalY + 6, { align: 'right' })
+  }
   
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(12)
-  const totalY = (ordine.sconto_valore && ordine.sconto_valore > 0) ? finalY + 12 : finalY + 6
+  const totalY = scontoValoreDerivato > 0 ? finalY + 12 : finalY + 6
   doc.text('TOTALE:', 130, totalY)
-  doc.text(formatCurrency(ordine.totale), 185, totalY, { align: 'right' })
+  doc.text(formatCurrency(totaleDerivato), 185, totalY, { align: 'right' })
   
   // Note
   if (ordine.note) {
-    const notesY = (ordine.sconto_valore && ordine.sconto_valore > 0) ? finalY + 20 : finalY + 14
+    const notesY = scontoValoreDerivato > 0 ? finalY + 20 : finalY + 14
     doc.setFontSize(10)
     doc.setFont('helvetica', 'bold')
     doc.text('Note:', 20, notesY)
@@ -496,7 +647,7 @@ const renderDocumentoPage = async (doc: jsPDF, ordine: Ordine, tipoDocumento: Ti
   }
   
   // Footer con dati aziendali
-  const pageHeight = doc.internal.pageSize.height
+  // (pageHeight già calcolata sopra)
   
   // Box footer
   doc.setFillColor(240, 240, 240)
