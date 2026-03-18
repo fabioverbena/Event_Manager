@@ -167,10 +167,12 @@ const renderGrenkeLeasingCondizioni = (doc: jsPDF, modelKey: string, startY: num
   })
 
   const afterTableY = (doc as any).lastAutoTable.finalY + 4
+  const grenkeNote = '*Alle rate va aggiunta IVA, la prima rata si paga 6 mesi dopo la consegna, bene strumentale totalmente deducibile. Prezzo comprensivo di trasporto e montaggio, a termine noleggio NON CI SONO COSTI AGGIUNTIVI PER IL RISCATTO'
   doc.setFontSize(9)
-  doc.setFont('helvetica', 'normal')
-  const splitNote = doc.splitTextToSize(table.note, 170)
+  doc.setFont('helvetica', 'bold')
+  const splitNote = doc.splitTextToSize(grenkeNote, 170)
   doc.text(splitNote, 20, afterTableY)
+  doc.setFont('helvetica', 'normal')
 
   return { finalY: afterTableY + splitNote.length * 4, rendered: true }
 }
@@ -496,27 +498,18 @@ const renderDocumentoPage = async (doc: jsPDF, ordine: Ordine, tipoDocumento: Ti
     const modelDisplayName = modelRow?.prodotti?.nome || getGrenkeModelDisplayName(ordine)
 
     const codice = modelRow?.prodotti?.codice_prodotto || ''
-    const prezzoUnit = modelRow?.prezzo_unitario || 0
     const qty = modelRow?.quantita || 1
-    const scontoPerc = ordine.sconto_percentuale || 0
-    const gross = prezzoUnit * qty
-    const scontoImporto = scontoPerc > 0
-      ? gross * (scontoPerc / 100)
-      : (Number(ordine.sconto_valore) || 0) > 0
-        ? Number(ordine.sconto_valore)
-        : 0
-    const subtotaleScontato = Math.max(0, gross - scontoImporto)
 
     autoTable(doc, {
       startY: yPos,
-      head: [['Codice', 'Modello', 'Q.tà', 'Prezzo Unit.', 'Sconto %', 'Subtotale']],
+      head: [['Codice', 'Modello', 'Q.tà', '', '', '']],
       body: [[
         codice,
         modelDisplayName || '',
         qty.toString(),
-        formatCurrency(prezzoUnit),
-        `${scontoPerc}%`,
-        formatCurrency(subtotaleScontato),
+        '',
+        '',
+        '',
       ]],
       theme: 'grid',
       tableWidth: 170,
@@ -626,37 +619,39 @@ const renderDocumentoPage = async (doc: jsPDF, ordine: Ordine, tipoDocumento: Ti
 
   yPos = await renderEspositoriImages(doc, ordine, yPos, maxImagesBottomY)
   
-  // Totali
+  // Totali (non mostrati per Grenke preventivo)
   const finalY = yPos
-  
-  doc.setFont('helvetica', 'normal')
-  doc.text('Subtotale Lordo:', 130, finalY)
-  doc.text(formatCurrency(subtotaleLordoDerivato), 185, finalY, { align: 'right' })
-  
-  if (scontoValoreDerivato > 0) {
-    const perc = Number(ordine.sconto_percentuale) || 0
-    const labelSconto = perc > 0
-      ? `Sconto (${perc}%):`
-      : 'Sconto:'
-    doc.text(labelSconto, 130, finalY + 6)
-    doc.text(`- ${formatCurrency(scontoValoreDerivato)}`, 185, finalY + 6, { align: 'right' })
-  }
-  
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(12)
-  const totalY = scontoValoreDerivato > 0 ? finalY + 12 : finalY + 6
-  doc.text('TOTALE:', 130, totalY)
-  doc.text(formatCurrency(totaleDerivato), 185, totalY, { align: 'right' })
-  
-  // Note
-  if (ordine.note) {
-    const notesY = scontoValoreDerivato > 0 ? finalY + 20 : finalY + 14
-    doc.setFontSize(10)
-    doc.setFont('helvetica', 'bold')
-    doc.text('Note:', 20, notesY)
+
+  if (!isGrenkePreventivo) {
     doc.setFont('helvetica', 'normal')
-    const splitNotes = doc.splitTextToSize(ordine.note, 170)
-    doc.text(splitNotes, 20, notesY + 5)
+    doc.text('Subtotale Lordo:', 130, finalY)
+    doc.text(formatCurrency(subtotaleLordoDerivato), 185, finalY, { align: 'right' })
+
+    if (scontoValoreDerivato > 0) {
+      const perc = Number(ordine.sconto_percentuale) || 0
+      const labelSconto = perc > 0
+        ? `Sconto (${perc}%):`
+        : 'Sconto:'
+      doc.text(labelSconto, 130, finalY + 6)
+      doc.text(`- ${formatCurrency(scontoValoreDerivato)}`, 185, finalY + 6, { align: 'right' })
+    }
+
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(12)
+    const totalY = scontoValoreDerivato > 0 ? finalY + 12 : finalY + 6
+    doc.text('TOTALE:', 130, totalY)
+    doc.text(formatCurrency(totaleDerivato), 185, totalY, { align: 'right' })
+
+    // Note
+    if (ordine.note) {
+      const notesY = scontoValoreDerivato > 0 ? finalY + 20 : finalY + 14
+      doc.setFontSize(10)
+      doc.setFont('helvetica', 'bold')
+      doc.text('Note:', 20, notesY)
+      doc.setFont('helvetica', 'normal')
+      const splitNotes = doc.splitTextToSize(ordine.note, 170)
+      doc.text(splitNotes, 20, notesY + 5)
+    }
   }
   
   // Footer con dati aziendali
