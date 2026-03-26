@@ -580,17 +580,25 @@ const renderDocumentoPage = async (doc: jsPDF, ordine: Ordine, tipoDocumento: Ti
   
   // Tabella Prodotti con griglia stile Excel
   if (!isGrenkeDocument) {
-    const tableData = (ordine.righe_ordine || []).map(riga => [
-      riga.prodotti?.codice_prodotto || '',
-      riga.prodotti?.nome || '',
-      riga.quantita.toString() + ' ' + (riga.prodotti?.unita_misura || 'pz'),
-      formatCurrency(riga.prezzo_unitario),
-      formatCurrency(riga.subtotale_riga),
-    ])
+    const tableData = (ordine.righe_ordine || []).map(riga => {
+      const gross = (Number(riga.prezzo_unitario) || 0) * (Number(riga.quantita) || 0)
+      const net = Number(riga.subtotale_riga) ?? gross
+      const scontoPercRiga = gross > 0 && net < gross
+        ? Math.round(((gross - net) / gross) * 10000) / 100
+        : 0
+      return [
+        riga.prodotti?.codice_prodotto || '',
+        riga.prodotti?.nome || '',
+        riga.quantita.toString() + ' ' + (riga.prodotti?.unita_misura || 'pz'),
+        formatCurrency(riga.prezzo_unitario),
+        scontoPercRiga > 0 ? `${scontoPercRiga}%` : '',
+        formatCurrency(riga.subtotale_riga),
+      ]
+    })
     
     autoTable(doc, {
       startY: yPos,
-      head: [['Codice', 'Prodotto', 'Q.tà', 'Prezzo Unit.', 'Totale']],
+      head: [['Codice', 'Prodotto', 'Q.tà', 'Prezzo Unit.', 'Sconto %', 'Totale']],
       body: tableData,
       theme: 'grid', // ← GRIGLIA STILE EXCEL
       tableWidth: 170,
@@ -611,10 +619,11 @@ const renderDocumentoPage = async (doc: jsPDF, ordine: Ordine, tipoDocumento: Ti
       },
       columnStyles: {
         0: { cellWidth: 18 },
-        1: { cellWidth: 84 },
+        1: { cellWidth: 74 },
         2: { cellWidth: 18, halign: 'center' },
-        3: { cellWidth: 25, halign: 'right' },
-        4: { cellWidth: 25, halign: 'right' },
+        3: { cellWidth: 22, halign: 'right' },
+        4: { cellWidth: 14, halign: 'right' },
+        5: { cellWidth: 24, halign: 'right' },
       },
     })
 
