@@ -387,19 +387,19 @@ const renderDocumentoPage = async (doc: jsPDF, ordine: Ordine, tipoDocumento: Ti
   }
 
   if (logoLoaded) {
-    doc.addImage(logoLoaded.dataUrl, 'PNG', 20, 8, 52, 24)
+    doc.addImage(logoLoaded.dataUrl, 'PNG', 20, 9, 60, 18)
   }
 
   doc.setFontSize(13)
   doc.setFont('helvetica', 'bold')
-  doc.text('FIOR D\'ACQUA', 77, 15)
+  doc.text('FIOR D\'ACQUA', 190, 14, { align: 'right' })
 
   doc.setFontSize(7.5)
   doc.setFont('helvetica', 'normal')
-  doc.text('Fior di Verbena di Zanotti Leonardo', 77, 20)
-  doc.text('Via Cà dei Lunghi, 54 - 47894 Borgo Maggiore (SM)', 77, 25)
-  doc.text('Tel: 0549 907005 | Cell: 373 7170588', 77, 30)
-  doc.text('info@fiordacqua.com | fiordacqua@gmail.com | www.fiordacqua.com', 77, 35)
+  doc.text('Fior di Verbena di Zanotti Leonardo', 190, 19, { align: 'right' })
+  doc.text('Via Cà dei Lunghi, 54 - 47894 Borgo Maggiore (SM)', 190, 24, { align: 'right' })
+  doc.text('Tel: 0549 907005 | Cell: 373 7170588', 190, 29, { align: 'right' })
+  doc.text('fiordacqua@gmail.com | www.fiordacqua.com', 190, 34, { align: 'right' })
 
   doc.setLineWidth(0.5)
   doc.line(20, 40, 190, 40)
@@ -623,7 +623,7 @@ const renderDocumentoPage = async (doc: jsPDF, ordine: Ordine, tipoDocumento: Ti
 
   const pageHeight = doc.internal.pageSize.height
   const footerTopY = pageHeight - 39
-  const bottomSectionH = 50
+  const bottomSectionH = 42
   const maxImagesBottomY = footerTopY - bottomSectionH - 4
 
   yPos = await renderEspositoriImages(doc, ordine, yPos, maxImagesBottomY)
@@ -656,18 +656,20 @@ const renderDocumentoPage = async (doc: jsPDF, ordine: Ordine, tipoDocumento: Ti
     totY += 7
   }
 
-  // Riquadro firma "Per accettazione"
-  const sigBoxH = 26
-  doc.setFontSize(8)
-  doc.setFont('helvetica', 'normal')
-  doc.setTextColor(0, 0, 0)
-  doc.setDrawColor(120, 120, 120)
-  doc.setLineWidth(0.3)
-  doc.rect(rightColX, totY, rightColW, sigBoxH, 'S')
-  doc.text('Per accettazione:', rightColX + 3, totY + 5)
-  doc.setDrawColor(160, 160, 160)
-  doc.setLineWidth(0.2)
-  doc.line(rightColX + 3, totY + sigBoxH - 5, rightColX + rightColW - 3, totY + sigBoxH - 5)
+  // Riquadro firma "Per accettazione" - solo per vendita diretta
+  if (!isGrenkeDocument) {
+    const sigBoxH = 26
+    doc.setFontSize(8)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(0, 0, 0)
+    doc.setDrawColor(120, 120, 120)
+    doc.setLineWidth(0.3)
+    doc.rect(rightColX, totY, rightColW, sigBoxH, 'S')
+    doc.text('Per accettazione:', rightColX + 3, totY + 5)
+    doc.setDrawColor(160, 160, 160)
+    doc.setLineWidth(0.2)
+    doc.line(rightColX + 3, totY + sigBoxH - 5, rightColX + rightColW - 3, totY + sigBoxH - 5)
+  }
 
   // LEFT: Note
   if (ordine.note) {

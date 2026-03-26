@@ -211,7 +211,8 @@ const renderGrenkeLeasingCondizioni = (doc: jsPDF, modelKey: GrenkeModelKey, sta
   const afterTableY = (doc as any).lastAutoTable.finalY + 4
   doc.setFontSize(9)
   doc.setFont('helvetica', 'normal')
-  const splitNote = doc.splitTextToSize(table.note, 170)
+  const noteText = table.note.split('\n')[0]
+  const splitNote = doc.splitTextToSize(noteText, 170)
   doc.text(splitNote, 20, afterTableY)
 
   return { finalY: afterTableY + splitNote.length * 4, rendered: true }
@@ -395,27 +396,18 @@ export const generateModuloVuoto = async (
         })
       }
       const codice = prodottoModel?.codice || ''
-      const prezzo = prodottoModel?.prezzo ?? 0
-      const scontoPerc = espositoriOptions!.grenkeModel === 'leo2' ? 5 : 10
-      const subtotale = prezzo * (1 - scontoPerc / 100)
 
-      tableHead = [['Codice', 'Modello', 'Q.tà', 'Prezzo €', 'Sconto %', 'Subtotale €']]
+      tableHead = [['Codice', 'Modello', 'Q.tà']]
       righeTabella = [[
         codice,
         modelDisplayName,
         '1',
-        prezzo ? prezzo.toFixed(2).replace('.', ',') : '',
-        `${scontoPerc}%`,
-        prezzo ? subtotale.toFixed(2).replace('.', ',') : '',
       ]]
 
       columnStyles = {
         0: { cellWidth: 25 },
-        1: { cellWidth: 77 },
-        2: { cellWidth: 15, halign: 'center' },
-        3: { cellWidth: 20, halign: 'right' },
-        4: { cellWidth: 15, halign: 'right' },
-        5: { cellWidth: 18, halign: 'right' },
+        1: { cellWidth: 112 },
+        2: { cellWidth: 33, halign: 'center' },
       }
 
       autoTable(doc, {
@@ -466,45 +458,16 @@ export const generateModuloVuoto = async (
         postTableY += boxHeight
       }
 
-      // Totali
+      // Note
       const finalY = postTableY + 5
 
-      doc.setFont('helvetica', 'normal')
-      doc.setFontSize(9)
-      doc.setLineWidth(0.1)
-      doc.text('Subtotale:', 130, finalY)
-      doc.line(155, finalY, 190, finalY)
-
-      doc.text('Sconto (%):', 130, finalY + 6)
-      doc.line(155, finalY + 6, 165, finalY + 6)
-      doc.text('€:', 170, finalY + 6)
-      doc.line(175, finalY + 6, 190, finalY + 6)
-
-      doc.setFont('helvetica', 'bold')
-      doc.setFontSize(10)
-      doc.text('TOTALE:', 130, finalY + 12)
-      doc.setLineWidth(0.3)
-      doc.line(155, finalY + 12, 190, finalY + 12)
-
-      // Condizioni Trasporto
       doc.setFont('helvetica', 'bold')
       doc.setFontSize(9)
-      doc.text('CONDIZIONI TRASPORTO:', 20, finalY + 15)
-
+      doc.text('Note:', 20, finalY)
       doc.setFont('helvetica', 'normal')
       doc.setLineWidth(0.1)
-      doc.rect(20, finalY + 17, 3, 3)
-      doc.text('Franco Destino', 25, finalY + 20)
-
-      doc.rect(70, finalY + 17, 3, 3)
-      doc.text('Porto Assegnato', 75, finalY + 20)
-
-      // Note
-      doc.setFont('helvetica', 'bold')
-      doc.text('Note:', 20, finalY + 26)
-      doc.setFont('helvetica', 'normal')
-      doc.line(20, finalY + 28, 190, finalY + 28)
-      doc.line(20, finalY + 33, 190, finalY + 33)
+      doc.line(20, finalY + 2, 190, finalY + 2)
+      doc.line(20, finalY + 7, 190, finalY + 7)
 
       // Footer
       const pageHeight = doc.internal.pageSize.height
