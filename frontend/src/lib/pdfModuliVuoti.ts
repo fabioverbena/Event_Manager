@@ -293,7 +293,7 @@ export const generateModuloVuoto = async (
     // Header
     doc.setFontSize(18)
     doc.setFont('helvetica', 'bold')
-    doc.text(`MODULO ORDINE ${tipo.toUpperCase()}`, 95, 16)
+    doc.text(`MODULO PREVENTIVO ${tipo.toUpperCase()}`, 95, 16)
 
     doc.setFontSize(9)
     doc.setFont('helvetica', 'normal')

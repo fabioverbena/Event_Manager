@@ -74,6 +74,7 @@ export default function OrdineForm({ ordine, clienti, prodotti, initialClienteId
     sconto_valore: null,
     totale: 0,
     note: '',
+    operatore: null,
     ha_espositori: false,
     ha_altri_prodotti: false,
   })
@@ -147,6 +148,7 @@ export default function OrdineForm({ ordine, clienti, prodotti, initialClienteId
         sconto_valore: ordine.sconto_valore,
         totale: ordine.totale,
         note: ordine.note || '',
+        operatore: ordine.operatore || null,
         ha_espositori: ordine.ha_espositori,
         ha_altri_prodotti: ordine.ha_altri_prodotti,
       })
@@ -525,6 +527,21 @@ export default function OrdineForm({ ordine, clienti, prodotti, initialClienteId
                   setFormData(prev => ({ ...prev, [name]: value }))
                 }}
                 className="input"
+              />
+            </div>
+
+            <div>
+              <label className="label">Operatore</label>
+              <input
+                type="text"
+                name="operatore"
+                value={formData.operatore ?? ''}
+                onChange={(e) => {
+                  const { name, value } = e.target
+                  setFormData(prev => ({ ...prev, [name]: value || null }))
+                }}
+                className="input"
+                placeholder="Nome operatore..."
               />
             </div>
           </div>

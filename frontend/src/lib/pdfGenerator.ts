@@ -424,12 +424,14 @@ const renderDocumentoPage = async (doc: jsPDF, ordine: Ordine, tipoDocumento: Ti
   doc.text('Data:', 20, yPos)
   doc.setFont('helvetica', 'normal')
   doc.text(formatDate(ordine.data_ordine), 50, yPos)
-  
-  doc.setFont('helvetica', 'bold')
-  doc.text('Stato:', 120, yPos)
-  doc.setFont('helvetica', 'normal')
-  doc.text(ordine.stato.toUpperCase(), 140, yPos)
-  
+
+  if (ordine.operatore) {
+    doc.setFont('helvetica', 'bold')
+    doc.text('Operatore:', 120, yPos)
+    doc.setFont('helvetica', 'normal')
+    doc.text(ordine.operatore, 158, yPos)
+  }
+
   yPos += 10
   
   // Dati Cliente
@@ -501,7 +503,8 @@ const renderDocumentoPage = async (doc: jsPDF, ordine: Ordine, tipoDocumento: Ti
   }
 
   const isGrenkePreventivo = isPreventivo && isLeasingGrenke
-  if (isGrenkePreventivo) {
+  const isGrenkeDocument = isLeasingGrenke
+  if (isGrenkeDocument) {
     const rows = ordine.righe_ordine || []
 
     const detected = rows
@@ -517,17 +520,31 @@ const renderDocumentoPage = async (doc: jsPDF, ordine: Ordine, tipoDocumento: Ti
 
     const codice = modelRow?.prodotti?.codice_prodotto || ''
     const qty = modelRow?.quantita || 1
+    const prezzoUnit = modelRow?.prezzo_unitario || 0
+    const scontoPerc = ordine.sconto_percentuale || 0
+    const gross = prezzoUnit * qty
+    const scontoImporto = scontoPerc > 0
+      ? gross * (scontoPerc / 100)
+      : (Number(ordine.sconto_valore) || 0) > 0
+        ? Number(ordine.sconto_valore)
+        : 0
+    const subtotaleScontato = Math.max(0, gross - scontoImporto)
 
     autoTable(doc, {
       startY: yPos,
-      head: [['Codice', 'Modello', 'Q.tà', '', '', '']],
+      head: [[
+        'Codice', 'Modello', 'Q.tà',
+        isGrenkePreventivo ? '' : 'Prezzo Unit.',
+        isGrenkePreventivo ? '' : 'Sconto %',
+        isGrenkePreventivo ? '' : 'Subtotale',
+      ]],
       body: [[
         codice,
         modelDisplayName || '',
         qty.toString(),
-        '',
-        '',
-        '',
+        isGrenkePreventivo ? '' : formatCurrency(prezzoUnit),
+        isGrenkePreventivo ? '' : (scontoPerc > 0 ? `${scontoPerc}%` : ''),
+        isGrenkePreventivo ? '' : formatCurrency(subtotaleScontato),
       ]],
       theme: 'grid',
       tableWidth: 170,
@@ -581,7 +598,7 @@ const renderDocumentoPage = async (doc: jsPDF, ordine: Ordine, tipoDocumento: Ti
   }
   
   // Tabella Prodotti con griglia stile Excel
-  if (!isGrenkePreventivo) {
+  if (!isGrenkeDocument) {
     const tableData = (ordine.righe_ordine || []).map(riga => [
       riga.prodotti?.codice_prodotto || '',
       riga.prodotti?.nome || '',

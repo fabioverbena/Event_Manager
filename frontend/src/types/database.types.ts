@@ -169,6 +169,7 @@ export interface Database {
           sconto_valore: number | null
           totale: number
           note: string | null
+          operatore: string | null
           created_by: string | null
           created_at: string
           updated_at: string
@@ -188,6 +189,7 @@ export interface Database {
           sconto_valore?: number | null
           totale?: number
           note?: string | null
+          operatore?: string | null
           created_by?: string | null
           created_at?: string
           updated_at?: string
@@ -207,6 +209,7 @@ export interface Database {
           sconto_valore?: number | null
           totale?: number
           note?: string | null
+          operatore?: string | null
           created_by?: string | null
           created_at?: string
           updated_at?: string
