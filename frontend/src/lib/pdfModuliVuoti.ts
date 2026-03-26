@@ -294,7 +294,7 @@ export const generateModuloVuoto = async (
     // Header
     doc.setFontSize(18)
     doc.setFont('helvetica', 'bold')
-    doc.text(`MODULO PREVENTIVO ${tipo.toUpperCase()}`, 95, 16)
+    doc.text(`PREVENTIVO ${tipo.toUpperCase()}`, 95, 16)
 
     doc.setFontSize(9)
     doc.setFont('helvetica', 'normal')
@@ -511,7 +511,7 @@ export const generateModuloVuoto = async (
         p.codice,
         p.nome,
         '',
-        p.prezzo.toFixed(2).replace('.', ','),
+        p.prezzo > 0 ? p.prezzo.toFixed(2).replace('.', ',') : '',
         ''
       ])
       // Aggiungi righe vuote se meno di 18
