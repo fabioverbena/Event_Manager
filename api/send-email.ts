@@ -34,7 +34,16 @@ const requireAuth = async (req: any) => {
   return decoded
 }
 
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '10mb',
+    },
+  },
+}
+
 const parseJsonBody = async (req: any): Promise<any> => {
+  if (Buffer.isBuffer(req.body)) return JSON.parse(req.body.toString('utf8'))
   if (typeof req.body === 'object' && req.body !== null) return req.body
   if (typeof req.body === 'string') return JSON.parse(req.body)
   return {}

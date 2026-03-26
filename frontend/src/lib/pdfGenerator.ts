@@ -37,11 +37,13 @@ const ESPOSITORI_IMAGE_PATHS: Record<EspositoreImageKey, string> = {
 
 type LoadedImage = { img: HTMLImageElement; dataUrl: string }
 
+const MAX_IMAGE_DIM = 1000
+
 const loadImageFromUrl = async (src: string): Promise<LoadedImage> => {
   const response = await fetch(src)
   if (!response.ok) throw new Error(`Failed to fetch image: ${src}`)
   const blob = await response.blob()
-  const dataUrl = await new Promise<string>((resolve, reject) => {
+  const originalDataUrl = await new Promise<string>((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = () => resolve(reader.result as string)
     reader.onerror = reject
@@ -51,9 +53,25 @@ const loadImageFromUrl = async (src: string): Promise<LoadedImage> => {
     const el = new Image()
     el.onload = () => resolve(el)
     el.onerror = reject
+    el.src = originalDataUrl
+  })
+  const origW = img.naturalWidth || img.width
+  const origH = img.naturalHeight || img.height
+  const scale = Math.min(1, MAX_IMAGE_DIM / origW, MAX_IMAGE_DIM / origH)
+  if (scale >= 1) return { img, dataUrl: originalDataUrl }
+  const canvas = document.createElement('canvas')
+  canvas.width = Math.round(origW * scale)
+  canvas.height = Math.round(origH * scale)
+  const ctx = canvas.getContext('2d')!
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+  const dataUrl = canvas.toDataURL('image/jpeg', 0.85)
+  const resized = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const el = new Image()
+    el.onload = () => resolve(el)
+    el.onerror = reject
     el.src = dataUrl
   })
-  return { img, dataUrl }
+  return { img: resized, dataUrl }
 }
 
 const loadFirstAvailableImage = async (sources: string[]): Promise<LoadedImage> => {
