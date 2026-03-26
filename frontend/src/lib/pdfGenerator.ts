@@ -387,104 +387,85 @@ const renderDocumentoPage = async (doc: jsPDF, ordine: Ordine, tipoDocumento: Ti
   }
 
   if (logoLoaded) {
-    doc.addImage(logoLoaded.dataUrl, 'PNG', 20, 14, 60, 18)
+    doc.addImage(logoLoaded.dataUrl, 'PNG', 20, 8, 52, 24)
   }
 
-  doc.setFontSize(20)
+  doc.setFontSize(13)
   doc.setFont('helvetica', 'bold')
-  doc.text('FIOR D\'ACQUA', 95, 20)
+  doc.text('FIOR D\'ACQUA', 77, 15)
 
-  doc.setFontSize(10)
+  doc.setFontSize(7.5)
   doc.setFont('helvetica', 'normal')
-  doc.text('Espositori Refrigerati per Fiori Recisi', 95, 27)
-  doc.text('www.fiordacqua.com', 95, 32)
-  
+  doc.text('Fior di Verbena di Zanotti Leonardo', 77, 20)
+  doc.text('Via Cà dei Lunghi, 54 - 47894 Borgo Maggiore (SM)', 77, 25)
+  doc.text('Tel: 0549 907005 | Cell: 373 7170588', 77, 30)
+  doc.text('info@fiordacqua.com | fiordacqua@gmail.com | www.fiordacqua.com', 77, 35)
+
   doc.setLineWidth(0.5)
   doc.line(20, 40, 190, 40)
   
-  let yPos = 50
-  doc.setFontSize(16)
+  const headerBlockY = 43
+
+  // LEFT COLUMN: Documento title + meta
+  doc.setFontSize(15)
   doc.setFont('helvetica', 'bold')
-  doc.text(`${labelDocumento} #${ordine.numero_ordine.toString().padStart(4, '0')}`, 20, yPos)
-  
-  yPos += 10
-  doc.setFontSize(10)
-  doc.setFont('helvetica', 'normal')
-  
-  // Evento e Data
+  doc.text(`${labelDocumento} #${ordine.numero_ordine.toString().padStart(4, '0')}`, 20, headerBlockY + 5)
+
+  doc.setFontSize(9)
+  let leftY = headerBlockY + 13
   if (ordine.nome_evento) {
     doc.setFont('helvetica', 'bold')
-    doc.text('Evento:', 20, yPos)
+    doc.text('Evento:', 20, leftY)
     doc.setFont('helvetica', 'normal')
-    doc.text(ordine.nome_evento, 50, yPos)
-    yPos += 6
+    doc.text(ordine.nome_evento, 43, leftY)
+    leftY += 5
   }
-  
   doc.setFont('helvetica', 'bold')
-  doc.text('Data:', 20, yPos)
+  doc.text('Data:', 20, leftY)
   doc.setFont('helvetica', 'normal')
-  doc.text(formatDate(ordine.data_ordine), 50, yPos)
-
+  doc.text(formatDate(ordine.data_ordine), 43, leftY)
+  leftY += 5
   if (ordine.operatore) {
     doc.setFont('helvetica', 'bold')
-    doc.text('Operatore:', 120, yPos)
+    doc.text('Operatore:', 20, leftY)
     doc.setFont('helvetica', 'normal')
-    doc.text(ordine.operatore, 158, yPos)
+    doc.text(ordine.operatore, 43, leftY)
   }
 
-  yPos += 10
-  
-  // Dati Cliente
-  doc.setFontSize(12)
-  doc.setFont('helvetica', 'bold')
-  doc.text('CLIENTE', 20, yPos)
-  
-  yPos += 7
-  doc.setFontSize(10)
-  doc.setFont('helvetica', 'normal')
-  
+  // RIGHT COLUMN: Cliente box
+  const cBoxX = 112
+  const cBoxY = headerBlockY
+  const cBoxW = 78
+  const cBoxH = 47
+  doc.setFillColor(248, 248, 248)
+  doc.setDrawColor(180, 180, 180)
+  doc.setLineWidth(0.3)
+  doc.rect(cBoxX, cBoxY, cBoxW, cBoxH, 'FD')
+
+  doc.setFontSize(7.5)
+  let cY = cBoxY + 5
   if (ordine.clienti) {
     const cliente = ordine.clienti
-    
     doc.setFont('helvetica', 'bold')
-    doc.text(cliente.ragione_sociale, 20, yPos)
-    yPos += 6
+    doc.text('DESTINATARIO:', cBoxX + 3, cY)
+    cY += 5
+    doc.text(cliente.ragione_sociale, cBoxX + 3, cY)
+    cY += 5
     doc.setFont('helvetica', 'normal')
-    
-    if (cliente.nome_referente) {
-      doc.text(`Ref: ${cliente.nome_referente}`, 20, yPos)
-      yPos += 5
-    }
-    
-    if (cliente.indirizzo) {
-      doc.text(cliente.indirizzo, 20, yPos)
-      yPos += 5
-    }
-    
+    if (cliente.nome_referente) { doc.text(`Ref: ${cliente.nome_referente}`, cBoxX + 3, cY); cY += 4 }
+    if (cliente.indirizzo) { doc.text(cliente.indirizzo, cBoxX + 3, cY); cY += 4 }
     if (cliente.citta || cliente.cap || cliente.provincia) {
-      const location = [cliente.cap, cliente.citta, cliente.provincia].filter(Boolean).join(' ')
-      doc.text(location, 20, yPos)
-      yPos += 5
+      const loc = [cliente.cap, cliente.citta, cliente.provincia].filter(Boolean).join(' ')
+      doc.text(loc, cBoxX + 3, cY); cY += 4
     }
-    
     if (cliente.telefono || cliente.cellulare) {
-      const phone = [cliente.telefono, cliente.cellulare].filter(Boolean).join(' / ')
-      doc.text(`Tel: ${phone}`, 20, yPos)
-      yPos += 5
+      doc.text(`Tel: ${[cliente.telefono, cliente.cellulare].filter(Boolean).join(' / ')}`, cBoxX + 3, cY); cY += 4
     }
-    
-    if (cliente.partita_iva) {
-      doc.text(`P.IVA: ${cliente.partita_iva}`, 20, yPos)
-      yPos += 5
-    }
-    
-    if (cliente.codice_fiscale) {
-      doc.text(`C.F.: ${cliente.codice_fiscale}`, 20, yPos)
-      yPos += 5
-    }
+    if (cliente.partita_iva) { doc.text(`P.IVA: ${cliente.partita_iva}`, cBoxX + 3, cY); cY += 4 }
+    if (cliente.codice_fiscale) { doc.text(`C.F.: ${cliente.codice_fiscale}`, cBoxX + 3, cY) }
   }
-  
-  yPos += 5
+
+  let yPos = headerBlockY + cBoxH + 4
   
   // Tipo vendita espositori
   if (ordine.ha_espositori && ordine.tipo_vendita_espositori) {
@@ -642,56 +623,66 @@ const renderDocumentoPage = async (doc: jsPDF, ordine: Ordine, tipoDocumento: Ti
 
   const pageHeight = doc.internal.pageSize.height
   const footerTopY = pageHeight - 39
-  const notesBlockHeight = (() => {
-    if (!ordine.note) return 0
-    doc.setFontSize(10)
-    const splitNotes = doc.splitTextToSize(ordine.note, 170)
-    return 5 + splitNotes.length * 4 + 2
-  })()
-
-  const totalsHeight = (scontoValoreDerivato > 0 ? 12 : 6) + 10
-  const maxImagesBottomY = footerTopY - 2 - (totalsHeight + notesBlockHeight)
+  const bottomSectionH = 50
+  const maxImagesBottomY = footerTopY - bottomSectionH - 4
 
   yPos = await renderEspositoriImages(doc, ordine, yPos, maxImagesBottomY)
-  
-  // Totali (non mostrati per Grenke preventivo)
+
+  // Bottom section: LEFT = note, RIGHT = totali + riquadro firma
   const finalY = yPos
+  const rightColX = 112
+  const rightColW = 78
 
+  // RIGHT: Totali (solo se non Grenke preventivo)
+  let totY = finalY
   if (!isGrenkePreventivo) {
+    doc.setFontSize(9)
     doc.setFont('helvetica', 'normal')
-    doc.text('Subtotale Lordo:', 130, finalY)
-    doc.text(formatCurrency(subtotaleLordoDerivato), 185, finalY, { align: 'right' })
-
+    doc.setTextColor(0, 0, 0)
+    doc.text('Subtotale Lordo:', rightColX, totY)
+    doc.text(formatCurrency(subtotaleLordoDerivato), 190, totY, { align: 'right' })
+    totY += 5
     if (scontoValoreDerivato > 0) {
       const perc = Number(ordine.sconto_percentuale) || 0
-      const labelSconto = perc > 0
-        ? `Sconto (${perc}%):`
-        : 'Sconto:'
-      doc.text(labelSconto, 130, finalY + 6)
-      doc.text(`- ${formatCurrency(scontoValoreDerivato)}`, 185, finalY + 6, { align: 'right' })
+      const labelSconto = perc > 0 ? `Sconto (${perc}%):` : 'Sconto:'
+      doc.text(labelSconto, rightColX, totY)
+      doc.text(`- ${formatCurrency(scontoValoreDerivato)}`, 190, totY, { align: 'right' })
+      totY += 5
     }
-
     doc.setFont('helvetica', 'bold')
-    doc.setFontSize(12)
-    const totalY = scontoValoreDerivato > 0 ? finalY + 12 : finalY + 6
-    doc.text('TOTALE:', 130, totalY)
-    doc.text(formatCurrency(totaleDerivato), 185, totalY, { align: 'right' })
-
-    // Note
-    if (ordine.note) {
-      const notesY = scontoValoreDerivato > 0 ? finalY + 20 : finalY + 14
-      doc.setFontSize(10)
-      doc.setFont('helvetica', 'bold')
-      doc.text('Note:', 20, notesY)
-      doc.setFont('helvetica', 'normal')
-      const splitNotes = doc.splitTextToSize(ordine.note, 170)
-      doc.text(splitNotes, 20, notesY + 5)
-    }
+    doc.setFontSize(11)
+    doc.text('TOTALE:', rightColX, totY)
+    doc.text(formatCurrency(totaleDerivato), 190, totY, { align: 'right' })
+    totY += 7
   }
-  
+
+  // Riquadro firma "Per accettazione"
+  const sigBoxH = 26
+  doc.setFontSize(8)
+  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(0, 0, 0)
+  doc.setDrawColor(120, 120, 120)
+  doc.setLineWidth(0.3)
+  doc.rect(rightColX, totY, rightColW, sigBoxH, 'S')
+  doc.text('Per accettazione:', rightColX + 3, totY + 5)
+  doc.setDrawColor(160, 160, 160)
+  doc.setLineWidth(0.2)
+  doc.line(rightColX + 3, totY + sigBoxH - 5, rightColX + rightColW - 3, totY + sigBoxH - 5)
+
+  // LEFT: Note
+  if (ordine.note) {
+    doc.setFontSize(9)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(0, 0, 0)
+    doc.text('Note:', 20, finalY)
+    doc.setFont('helvetica', 'normal')
+    const splitNotes = doc.splitTextToSize(ordine.note, 88)
+    doc.text(splitNotes, 20, finalY + 5)
+  }
+
   // Footer con dati aziendali
   // (pageHeight già calcolata sopra)
-  
+
   // Box footer
   doc.setFillColor(240, 240, 240)
   doc.rect(0, pageHeight - 39, 210, 39, 'F')
