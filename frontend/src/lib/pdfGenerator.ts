@@ -623,7 +623,7 @@ const renderDocumentoPage = async (doc: jsPDF, ordine: Ordine, tipoDocumento: Ti
 
   const pageHeight = doc.internal.pageSize.height
   const footerTopY = pageHeight - 39
-  const bottomSectionH = 42
+  const bottomSectionH = isGrenkeDocument ? 20 : 42
   const maxImagesBottomY = footerTopY - bottomSectionH - 4
 
   yPos = await renderEspositoriImages(doc, ordine, yPos, maxImagesBottomY)
