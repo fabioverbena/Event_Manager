@@ -34,19 +34,26 @@ const requireAuth = async (req: any) => {
   return decoded
 }
 
-export const config = {
-  api: {
-    bodyParser: {
-      sizeLimit: '10mb',
-    },
-  },
+const decodeHeaderValue = (value: unknown) => {
+  const normalized = Array.isArray(value) ? value[0] : value
+  if (typeof normalized !== 'string') return ''
+  try {
+    return decodeURIComponent(normalized)
+  } catch {
+    return normalized
+  }
 }
 
-const parseJsonBody = async (req: any): Promise<any> => {
-  if (Buffer.isBuffer(req.body)) return JSON.parse(req.body.toString('utf8'))
-  if (typeof req.body === 'object' && req.body !== null) return req.body
-  if (typeof req.body === 'string') return JSON.parse(req.body)
-  return {}
+const readBinaryBody = async (req: any): Promise<Buffer> => {
+  if (Buffer.isBuffer(req.body)) return req.body
+  if (req.body instanceof Uint8Array) return Buffer.from(req.body)
+  if (typeof req.body === 'string') return Buffer.from(req.body, 'binary')
+
+  const chunks: Buffer[] = []
+  for await (const chunk of req) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))
+  }
+  return Buffer.concat(chunks)
 }
 
 export default async function handler(req: any, res: any) {
@@ -58,13 +65,16 @@ export default async function handler(req: any, res: any) {
   try {
     await requireAuth(req)
 
-    const body = await parseJsonBody(req)
-    const { to, subject, text, attachmentBase64, attachmentFilename } = body || {}
+    const to = decodeHeaderValue(req.headers['x-email-to'])
+    const subject = decodeHeaderValue(req.headers['x-email-subject'])
+    const text = decodeHeaderValue(req.headers['x-email-text'])
+    const attachmentFilename = decodeHeaderValue(req.headers['x-attachment-filename'])
+    const attachmentBuffer = await readBinaryBody(req)
 
-    if (!to || !subject || !text || !attachmentBase64 || !attachmentFilename) {
+    if (!to || !subject || !text || !attachmentFilename || attachmentBuffer.length === 0) {
       res.status(400).json({
         ok: false,
-        error: 'Missing required fields: to, subject, text, attachmentBase64, attachmentFilename',
+        error: 'Missing required fields: x-email-to, x-email-subject, x-email-text, x-attachment-filename or empty PDF body',
       })
       return
     }
@@ -111,8 +121,6 @@ export default async function handler(req: any, res: any) {
       })
       throw verifyErr
     }
-
-    const attachmentBuffer = Buffer.from(String(attachmentBase64), 'base64')
 
     const fixedBcc = 'fiordacqua@gmail.com'
 

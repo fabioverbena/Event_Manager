@@ -23,14 +23,6 @@ interface InviaEmailModalProps {
   onClose: () => void
 }
 
-const blobToBase64 = async (blob: Blob) => {
-  const arrayBuffer = await blob.arrayBuffer()
-  let binary = ''
-  const bytes = new Uint8Array(arrayBuffer)
-  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i])
-  return btoa(binary)
-}
-
 export default function InviaEmailModal({ ordine, onClose }: InviaEmailModalProps) {
   const [to, setTo] = useState(ordine.clienti?.email || '')
   const [subject, setSubject] = useState('')
@@ -89,21 +81,18 @@ export default function InviaEmailModal({ ordine, onClose }: InviaEmailModalProp
       const idToken = await user.getIdToken()
 
       const { blob, filename } = await generatePreventivoPDFBlob(ordine as any)
-      const attachmentBase64 = await blobToBase64(blob)
 
       const resp = await fetch('/api/send-email', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/pdf',
           Authorization: `Bearer ${idToken}`,
+          'X-Email-To': encodeURIComponent(to),
+          'X-Email-Subject': encodeURIComponent(subject),
+          'X-Email-Text': encodeURIComponent(text),
+          'X-Attachment-Filename': encodeURIComponent(filename),
         },
-        body: JSON.stringify({
-          to,
-          subject,
-          text,
-          attachmentBase64,
-          attachmentFilename: filename,
-        }),
+        body: blob,
       })
 
       const data = await resp.json().catch(() => null)
