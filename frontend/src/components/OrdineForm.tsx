@@ -438,7 +438,7 @@ export default function OrdineForm({ ordine, clienti, prodotti, initialClienteId
       <div className="bg-white rounded-lg shadow-xl max-w-7xl w-full max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
           <h2 className="text-2xl font-bold text-gray-900">
-            {ordine ? 'Modifica Ordine' : 'Nuovo Ordine'}
+            {ordine ? 'Modifica Ordine / Preventivo' : 'Nuovo Ordine / Preventivo'}
           </h2>
           <button
             onClick={onClose}
@@ -528,7 +528,7 @@ export default function OrdineForm({ ordine, clienti, prodotti, initialClienteId
             </div>
 
             <div>
-              <label className="label">Data Ordine</label>
+              <label className="label">Data Ordine / Preventivo</label>
               <input
                 type="date"
                 name="data_ordine"
@@ -742,7 +742,7 @@ export default function OrdineForm({ ordine, clienti, prodotti, initialClienteId
 
           {/* Note */}
           <div>
-            <label className="label">Note Ordine</label>
+            <label className="label">Note Ordine / Preventivo</label>
             <textarea
               name="note"
               value={formData.note ?? ''}
@@ -771,7 +771,7 @@ export default function OrdineForm({ ordine, clienti, prodotti, initialClienteId
               className="btn-primary"
               disabled={saving || carrello.filter(r => r.prodotto_id).length === 0}
             >
-              {saving ? 'Salvataggio...' : ordine ? 'Salva Modifiche' : 'Crea Ordine'}
+              {saving ? 'Salvataggio...' : ordine ? 'Salva Modifiche' : 'Crea Ordine / Preventivo'}
             </button>
           </div>
         </form>

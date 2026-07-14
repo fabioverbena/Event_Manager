@@ -70,7 +70,7 @@ export default function Layout() {
             <NavLink to="/ordini">
               <div className="flex items-center gap-2 px-3 py-4">
                 <ShoppingCart size={20} />
-                <span className="font-medium">Ordini</span>
+                <span className="font-medium">Ordini / Preventivi</span>
               </div>
             </NavLink>
           </div>

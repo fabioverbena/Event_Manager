@@ -170,7 +170,7 @@ export default function Dashboard() {
         <div className="card">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600 mb-1">Ordini Totali</p>
+              <p className="text-sm text-gray-600 mb-1">Ordini / Preventivi Totali</p>
               {loading ? (
                 <div className="animate-pulse bg-gray-200 h-9 w-16 rounded"></div>
               ) : (
@@ -189,7 +189,7 @@ export default function Dashboard() {
         <div className="card">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600 mb-1">Valore Ordini</p>
+              <p className="text-sm text-gray-600 mb-1">Valore Ordini / Preventivi</p>
               {loading ? (
                 <div className="animate-pulse bg-gray-200 h-9 w-24 rounded"></div>
               ) : (
@@ -233,8 +233,8 @@ export default function Dashboard() {
               <div className="flex items-center gap-3">
                 <ShoppingCart className="text-purple-600" size={20} />
                 <div>
-                  <h3 className="font-semibold text-gray-900">Nuovo Ordine</h3>
-                  <p className="text-sm text-gray-600">Crea ordine fiera</p>
+                  <h3 className="font-semibold text-gray-900">Nuovo Ordine / Preventivo</h3>
+                  <p className="text-sm text-gray-600">Crea ordine o preventivo fiera</p>
                 </div>
               </div>
             </a>

@@ -130,12 +130,12 @@ export default function Ordini() {
     <div>
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Ordini</h1>
-          <p className="text-gray-600 mt-1">Gestisci gli ordini fiera</p>
+          <h1 className="text-3xl font-bold text-gray-900">Ordini / Preventivi</h1>
+          <p className="text-gray-600 mt-1">Gestisci gli ordini e preventivi fiera</p>
         </div>
         <button onClick={handleOpenNew} className="btn-primary flex items-center gap-2">
           <Plus size={20} />
-          Nuovo Ordine
+          Nuovo Ordine / Preventivo
         </button>
       </div>
 

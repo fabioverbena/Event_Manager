@@ -115,7 +115,7 @@ export default function InviaEmailModal({ ordine, onClose }: InviaEmailModalProp
         <div className="border-b border-gray-200 px-6 py-4 flex justify-between items-center">
           <div>
             <h2 className="text-2xl font-bold text-gray-900">Invia Email Preventivo</h2>
-            <div className="text-sm text-gray-600 mt-1">Ordine {ordineLabel}</div>
+            <div className="text-sm text-gray-600 mt-1">Ordine / Preventivo {ordineLabel}</div>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600" disabled={sending}>
             <X size={24} />

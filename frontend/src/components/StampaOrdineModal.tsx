@@ -95,7 +95,7 @@ export default function StampaOrdineModal({ ordine, onClose }: StampaOrdineModal
           )}
 
           <div>
-            <div className="text-sm text-gray-600 mb-1">Ordine</div>
+            <div className="text-sm text-gray-600 mb-1">Ordine / Preventivo</div>
             <div className="font-semibold text-gray-900">
               #{ordine.numero_ordine.toString().padStart(4, '0')} {ordine.clienti?.ragione_sociale ? `- ${ordine.clienti.ragione_sociale}` : ''}
             </div>
@@ -115,7 +115,7 @@ export default function StampaOrdineModal({ ordine, onClose }: StampaOrdineModal
                     : 'border-gray-200 hover:border-green-300'
                 }`}
               >
-                <div className="font-semibold">Ordine</div>
+                <div className="font-semibold">Ordine / Preventivo</div>
               </button>
               <button
                 onClick={() => setTipoDocumento('preventivo')}
