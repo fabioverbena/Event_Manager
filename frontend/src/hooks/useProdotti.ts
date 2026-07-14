@@ -18,7 +18,7 @@ export function useProdotti() {
       const { data, error: fetchError } = await supabase
         .from('categorie')
         .select('*')
-        .eq('attivo', true)
+        .neq('attivo', false)
         .order('ordine_visualizzazione', { ascending: true })
 
       if (fetchError) throw fetchError

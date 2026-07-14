@@ -174,7 +174,6 @@ export default function ProdottoForm({ prodotto, categorie, onClose, onSave, onG
                   onChange={handleChange}
                   className={`input ${errors.codice_prodotto ? 'border-red-500' : ''}`}
                   placeholder="ESRE-001"
-                  readOnly={!prodotto}
                 />
                 {!prodotto && (
                   <button
