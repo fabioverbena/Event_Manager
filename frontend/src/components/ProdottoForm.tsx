@@ -202,15 +202,19 @@ export default function ProdottoForm({ prodotto, categorie, onClose, onSave, onG
                 className={`input ${errors.categoria_id ? 'border-red-500' : ''}`}
               >
                 <option value="">Seleziona categoria...</option>
-                {categorieParent.map(parent => (
-                  <optgroup key={parent.id} label={parent.nome}>
-                    {categorieChild(parent.id).map(child => (
-                      <option key={child.id} value={child.id}>
-                        {child.nome}
-                      </option>
-                    ))}
-                  </optgroup>
-                ))}
+                {categorieParent.map(parent => {
+                  const figli = categorieChild(parent.id)
+                  return (
+                    <optgroup key={parent.id} label={parent.nome}>
+                      <option value={parent.id}>{parent.nome}</option>
+                      {figli.map(child => (
+                        <option key={child.id} value={child.id}>
+                          └ {child.nome}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )
+                })}
               </select>
               {errors.categoria_id && (
                 <p className="text-red-500 text-sm mt-1">{errors.categoria_id}</p>
