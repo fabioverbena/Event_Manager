@@ -83,6 +83,7 @@ export default function OrdineForm({ ordine, clienti, prodotti, initialClienteId
   const [carrello, setCarrello] = useState<RigaCarrello[]>([])
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   const isScontoExtra = (riga: RigaCarrello) =>
     (riga.prodotto?.nome || '').toLowerCase().includes('sconto extra')
@@ -367,6 +368,7 @@ export default function OrdineForm({ ordine, clienti, prodotti, initialClienteId
     if (!validate()) return
 
     setSaving(true)
+    setSaveError(null)
     try {
       const righeValide = carrello.filter(r => r.prodotto_id)
 
@@ -384,10 +386,16 @@ export default function OrdineForm({ ordine, clienti, prodotti, initialClienteId
         tipo_vendita_espositori: hasEspositori ? tipoVenditaEspositori : null,
       }
 
-      await onSave(ordineCompleto, righe)
-      onClose()
+      const result = await onSave(ordineCompleto, righe)
+      if (result && result.success) {
+        onClose()
+      } else if (result && !result.success) {
+        setSaveError(result.error || 'Errore durante il salvataggio')
+      } else {
+        onClose()
+      }
     } catch (error) {
-      console.error('Errore salvataggio:', error)
+      setSaveError(error instanceof Error ? error.message : 'Errore durante il salvataggio')
     } finally {
       setSaving(false)
     }
@@ -755,6 +763,13 @@ export default function OrdineForm({ ordine, clienti, prodotti, initialClienteId
               placeholder="Note aggiuntive per l'ordine..."
             />
           </div>
+
+          {/* Errore salvataggio */}
+          {saveError && (
+            <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg text-sm">
+              Errore: {saveError}
+            </div>
+          )}
 
           {/* Bottoni */}
           <div className="flex justify-end gap-3 pt-4 border-t">

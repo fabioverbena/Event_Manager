@@ -83,11 +83,13 @@ export default function Ordini() {
       if (result.success) {
         showSuccess(SUCCESS_MESSAGES.ORDINE_UPDATED)
       }
+      return result
     } else {
       const result = await createOrdine(data, righe)
       if (result.success) {
         showSuccess(SUCCESS_MESSAGES.ORDINE_CREATED)
       }
+      return result
     }
   }
 
