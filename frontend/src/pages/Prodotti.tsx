@@ -51,11 +51,13 @@ export default function Prodotti() {
       if (result.success) {
         showSuccess(SUCCESS_MESSAGES.PRODOTTO_UPDATED)
       }
+      return result
     } else {
       const result = await createProdotto(data)
       if (result.success) {
         showSuccess(SUCCESS_MESSAGES.PRODOTTO_CREATED)
       }
+      return result
     }
   }
 

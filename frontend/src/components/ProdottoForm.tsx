@@ -11,7 +11,7 @@ interface ProdottoFormProps {
   prodotto?: Prodotto | null
   categorie: Categoria[]
   onClose: () => void
-  onSave: (data: ProdottoInsert) => Promise<void>
+  onSave: (data: ProdottoInsert) => Promise<{ success: boolean; error?: string }>
   onGenerateCodice: (nome: string) => Promise<string>
 }
 
@@ -29,6 +29,7 @@ export default function ProdottoForm({ prodotto, categorie, onClose, onSave, onG
 
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const [generatingCode, setGeneratingCode] = useState(false)
 
   useEffect(() => {
@@ -115,11 +116,16 @@ export default function ProdottoForm({ prodotto, categorie, onClose, onSave, onG
     if (!validate()) return
 
     setSaving(true)
+    setSaveError(null)
     try {
-      await onSave(formData)
-      onClose()
+      const result = await onSave(formData)
+      if (result.success) {
+        onClose()
+      } else {
+        setSaveError(result.error || 'Errore durante il salvataggio')
+      }
     } catch (error) {
-      console.error('Errore salvataggio:', error)
+      setSaveError(error instanceof Error ? error.message : 'Errore durante il salvataggio')
     } finally {
       setSaving(false)
     }
@@ -296,6 +302,12 @@ export default function ProdottoForm({ prodotto, categorie, onClose, onSave, onG
               Prodotto disponibile per gli ordini
             </label>
           </div>
+
+          {saveError && (
+            <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg text-sm">
+              Errore: {saveError}
+            </div>
+          )}
 
           <div className="flex justify-end gap-3 pt-4 border-t">
             <button
