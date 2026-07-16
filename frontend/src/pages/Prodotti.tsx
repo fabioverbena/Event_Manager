@@ -65,6 +65,8 @@ export default function Prodotti() {
     const result = await deleteProdotto(id)
     if (result.success) {
       showSuccess(SUCCESS_MESSAGES.PRODOTTO_DELETED)
+    } else {
+      setSuccessMessage(null)
     }
   }
 

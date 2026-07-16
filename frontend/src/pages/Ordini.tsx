@@ -40,6 +40,7 @@ export default function Ordini() {
   const [filtroStato, setFiltroStato] = useState<string>('tutti')
   const [filtroEvento, setFiltroEvento] = useState<string>('tutti')
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
+  const [localError, setLocalError] = useState<string | null>(null)
 
   useEffect(() => {
     const shouldOpen = searchParams.get('new_ordine') === '1'
@@ -57,10 +58,13 @@ export default function Ordini() {
   }
 
   const handleOpenEdit = async (ordine: Ordine) => {
+    setLocalError(null)
     const result = await fetchOrdineCompleto(ordine.id)
     if (result.success && result.data) {
       setEditingOrdine(result.data)
       setShowForm(true)
+    } else {
+      setLocalError(result.error || 'Impossibile aprire il modulo di modifica')
     }
   }
 
@@ -94,9 +98,12 @@ export default function Ordini() {
   }
 
   const handleDelete = async (id: string) => {
+    setLocalError(null)
     const result = await deleteOrdine(id)
     if (result.success) {
       showSuccess(SUCCESS_MESSAGES.ORDINE_DELETED)
+    } else {
+      setLocalError(result.error || 'Errore durante la cancellazione')
     }
   }
 
@@ -153,9 +160,10 @@ export default function Ordini() {
         </div>
       )}
 
-      {error && (
-        <div className="mb-6 bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg">
-          {error}
+      {(error || localError) && (
+        <div className="mb-6 bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg flex items-center justify-between">
+          <span>{localError || error}</span>
+          <button onClick={() => setLocalError(null)} className="text-red-600 hover:text-red-800">✕</button>
         </div>
       )}
 
