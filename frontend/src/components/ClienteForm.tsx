@@ -11,7 +11,7 @@ interface ClienteFormProps {
   cliente?: Cliente | null
   initialRagioneSociale?: string
   onClose: () => void
-  onSave: (data: ClienteInsert) => Promise<void>
+  onSave: (data: ClienteInsert) => Promise<{ success: boolean; error?: string }>
 }
 
 export default function ClienteForm({ cliente, initialRagioneSociale, onClose, onSave }: ClienteFormProps) {
@@ -32,6 +32,7 @@ export default function ClienteForm({ cliente, initialRagioneSociale, onClose, o
 
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   useEffect(() => {
     if (cliente) {
@@ -98,11 +99,18 @@ export default function ClienteForm({ cliente, initialRagioneSociale, onClose, o
     if (!validate()) return
 
     setSaving(true)
+    setSaveError(null)
     try {
-      await onSave(formData)
-      onClose()
+      const result = await onSave(formData)
+      if (result && result.success) {
+        onClose()
+      } else if (result && !result.success) {
+        setSaveError(result.error || 'Errore durante il salvataggio')
+      } else {
+        onClose()
+      }
     } catch (error) {
-      console.error('Errore salvataggio:', error)
+      setSaveError(error instanceof Error ? error.message : 'Errore durante il salvataggio')
     } finally {
       setSaving(false)
     }
@@ -300,6 +308,12 @@ export default function ClienteForm({ cliente, initialRagioneSociale, onClose, o
               placeholder="Note interne..."
             />
           </div>
+
+          {saveError && (
+            <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg text-sm">
+              Errore: {saveError}
+            </div>
+          )}
 
           <div className="flex justify-end gap-3 pt-4 border-t">
             <button

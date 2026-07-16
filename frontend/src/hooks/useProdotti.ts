@@ -96,7 +96,7 @@ export function useProdotti() {
 
       if (updateError) throw updateError
 
-      setProdotti(prev => 
+      setProdotti(prev =>
         prev.map(p => p.id === id ? data : p)
           .sort((a, b) => a.codice_prodotto.localeCompare(b.codice_prodotto))
       )

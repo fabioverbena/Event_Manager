@@ -99,6 +99,7 @@ export default function Clienti() {
       if (result.success) {
         showSuccess(SUCCESS_MESSAGES.CLIENTE_UPDATED)
       }
+      return result
     } else {
       const result = await createCliente(data)
       if (result.success) {
@@ -108,6 +109,7 @@ export default function Clienti() {
           navigate(`/ordini?new_ordine=1&cliente_id=${encodeURIComponent(result.data.id)}`)
         }
       }
+      return result
     }
   }
 
