@@ -138,14 +138,15 @@ export default function ClientiTable({ clienti, onEdit, onDelete }: ClientiTable
                     </button>
                     <button
                       onClick={() => handleDelete(cliente.id)}
-                      className={`p-2 rounded-lg transition-colors ${
+                      className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-sm font-medium transition-all ${
                         deleteConfirm === cliente.id
-                          ? 'bg-red-600 text-white'
+                          ? 'bg-amber-500 text-white animate-pulse'
                           : 'text-red-600 hover:bg-red-50'
                       }`}
-                      title={deleteConfirm === cliente.id ? 'Clicca per confermare' : 'Elimina'}
+                      title={deleteConfirm === cliente.id ? 'Clicca ancora per confermare' : 'Elimina'}
                     >
-                      <Trash2 size={18} />
+                      <Trash2 size={16} />
+                      {deleteConfirm === cliente.id && <span>Conferma?</span>}
                     </button>
                   </div>
                 </td>
